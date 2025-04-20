@@ -413,7 +413,7 @@ const WeatherStationOverview = ({
               <Box 
                 sx={{ 
                   p: 1.5,
-                  borderRadius: '50%',
+                  borderRadius: '10%',
                   background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
                   color: 'white',
                   mr: 2
@@ -498,9 +498,10 @@ const WeatherStationOverview = ({
       </GlassPanel>
       
       {/* Current weather metrics - now with equal height cards and click functionality */}
+      
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" fontWeight="medium" sx={{ mb: 2 }}>Current Conditions</Typography>
-        <Grid container spacing={3}>
+        <Typography variant="h6" fontWeight="medium" sx={{ mb: 5 }}>Current Conditions</Typography>
+        <Grid container spacing={20}>
           {/* Temperature */}
           <Grid item xs={12} sm={6} md={3}>
             <WeatherMetricCard 

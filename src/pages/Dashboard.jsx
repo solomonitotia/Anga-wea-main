@@ -143,7 +143,7 @@ const Dashboard = () => {
     const fetchWeatherData = async () => {
       try {
         setLoading(true);
-        console.log("Fetching weather data since April 17th 2025...");
+        console.log("Fetching weather data ...");
         
         // Use our updated function to get data since April 17th
         const startDate = new Date('2025-04-17T00:00:00');
@@ -330,8 +330,8 @@ const Dashboard = () => {
     // Call the fetch function
     fetchWeatherData();
     
-    // Set up interval for polling (every 30 seconds)
-    const intervalId = setInterval(fetchWeatherData, 30000);
+    // Set up interval for polling (every 5 minutes)
+    const intervalId = setInterval(fetchWeatherData, 500000);
     
     // Clean up the interval on unmount
     return () => {
