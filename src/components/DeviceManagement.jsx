@@ -45,8 +45,6 @@ import {
   SignalCellular0Bar as SignalLowIcon,
   SignalCellular4Bar as SignalHighIcon,
   SignalCellularAlt as SignalMediumIcon,
-  CheckCircle as CheckCircleIcon,
-  ErrorOutline as ErrorIcon,
   MoreVert as MoreIcon,
   FilterList as FilterIcon,
   ViewModule as GridViewIcon,
@@ -96,17 +94,6 @@ const DeviceManagement = ({ devices }) => {
       [name]: value
     });
   };
-  // Called when the user clicks to edit a device
-  const handleEditDevice = (device) => {
-    console.log('Edit device clicked:', device);
-    // TODO: Open a dialog or navigate to edit form
-  };
-
-  // Called when the user clicks to delete a device
-  const handleOpenDeleteDialog = (device) => {
-    setSelectedDevice(device);
-    setOpenDeleteDialog(true);
-  };
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -143,19 +130,52 @@ const DeviceManagement = ({ devices }) => {
     setSelectedDeviceForMenu(null);
   };
 
+  // Handle opening the add device dialog
+  const handleOpenAddDialog = () => {
+    setOpenAddDialog(true);
+  };
+
+  // Handle closing the add device dialog
+  const handleCloseAddDialog = () => {
+    setOpenAddDialog(false);
+    // Reset form when dialog is closed
+    setNewDeviceData({
+      deviceId: '',
+      applicationId: 'weather-stations',
+      deviceAddress: '',
+      deviceEui: '',
+      joinEui: '',
+      description: '',
+      latitude: '',
+      longitude: ''
+    });
+  };
+
+  // Handle opening the delete device dialog
+  const handleOpenDeleteDialog = (device) => {
+    setSelectedDevice(device);
+    setOpenDeleteDialog(true);
+  };
+
+  // Handle closing the delete device dialog
+  const handleCloseDeleteDialog = () => {
+    setOpenDeleteDialog(false);
+    setSelectedDevice(null);
+  };
+
   // Extract location information from device data
   const getDeviceLocation = (device) => {
     // Check various possible locations in the device data
-    const latitude =
-      device.latitude ||
-      device.location?.latitude ||
+    const latitude = 
+      device.latitude || 
+      device.location?.latitude || 
       device.uplink_message?.decoded_payload?.latitude;
-
-    const longitude =
-      device.longitude ||
-      device.location?.longitude ||
+    
+    const longitude = 
+      device.longitude || 
+      device.location?.longitude || 
       device.uplink_message?.decoded_payload?.longitude;
-
+    
     // Return formatted location if both lat and long exist
     if (latitude && longitude) {
       return {
@@ -163,7 +183,7 @@ const DeviceManagement = ({ devices }) => {
         longitude: Number(longitude).toFixed(4)
       };
     }
-
+    
     return null;
   };
 
@@ -179,47 +199,51 @@ const DeviceManagement = ({ devices }) => {
   const formatTimeAgo = (date) => {
     const now = new Date();
     const diffMinutes = Math.round((now - date) / (1000 * 60));
-
+    
     if (diffMinutes < 1) return 'just now';
     if (diffMinutes < 60) return `${diffMinutes} min ago`;
-
+    
     const diffHours = Math.floor(diffMinutes / 60);
     const remainingMinutes = diffMinutes % 60;
-
+    
     if (diffHours < 24) {
-      return remainingMinutes > 0
+      return remainingMinutes > 0 
         ? `${diffHours}h ${remainingMinutes}m ago`
         : `${diffHours}h ago`;
     }
-
+    
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   };
 
   // Calculate device status based on last activity
-  const getDeviceStatus = (timestamp) => {
-    if (!timestamp) return { label: 'Unknown', color: 'default' };
+// Calculate device status based on last activity
+const getDeviceStatus = (timestamp) => {
+  if (!timestamp) return { label: 'Unknown', color: 'default' };
 
-    const now = new Date();
-    const lastActivity = new Date(timestamp);
-    const diffHours = (now - lastActivity) / (1000 * 60 * 60);
+  const now = new Date();
+  const lastActivity = new Date(timestamp);
+  
+  // Calculate time difference in minutes
+  const diffMinutes = (now - lastActivity) / (1000 * 60);
 
-    // Consider device online if data was sent within the last hour
-    if (diffHours < 1) {
-      return {
-        label: 'Online',
-        color: 'success',
-        details: `Last active ${formatTimeAgo(lastActivity)}`
-      };
-    }
-
-    // If no data for more than an hour, mark as offline
-    return {
-      label: 'Offline',
-      color: 'error',
+  // Consider device online if data was sent within the last 60 minutes
+  // This provides more granular control over online/offline status
+  if (diffMinutes < 60) {
+    return { 
+      label: 'Online', 
+      color: 'success',
       details: `Last active ${formatTimeAgo(lastActivity)}`
     };
+  } 
+  
+  // If no data for more than 60 minutes, mark as offline
+  return { 
+    label: 'Offline', 
+    color: 'error',
+    details: `Last active ${formatTimeAgo(lastActivity)}`
   };
+};
 
   // Deduplicate devices based on device_id
   const getUniqueDevices = () => {
@@ -236,9 +260,6 @@ const DeviceManagement = ({ devices }) => {
 
     return Array.from(uniqueDevices.values());
   };
-
-  // Get unique devices
-  const uniqueDevices = getUniqueDevices();
 
   // Get last reading data for a specific device
   const getLatestReading = (deviceId) => {
@@ -257,26 +278,113 @@ const DeviceManagement = ({ devices }) => {
     })[0];
   };
 
-  // Filter devices based on search term and status filter
-  const filteredDevices = uniqueDevices.filter(device => {
-    const deviceId = device.end_device_ids?.device_id || '';
-    const appId = device.end_device_ids?.application_ids?.application_id || '';
-    const devAddr = device.end_device_ids?.dev_addr || '';
+  // Handle adding a device
+  const handleAddDevice = async () => {
+    try {
+      setLoading(true);
 
-    // Apply text search filter
-    const matchesSearch =
-      deviceId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      devAddr.toLowerCase().includes(searchTerm.toLowerCase());
+      // Validate input
+      if (!newDeviceData.deviceId || !newDeviceData.applicationId) {
+        setSnackbar({
+          open: true,
+          message: 'Please fill in all required fields',
+          severity: 'error'
+        });
+        setLoading(false);
+        return;
+      }
 
-    // Apply status filter if not 'all'
-    if (statusFilter !== 'all') {
-      const status = getDeviceStatus(device.received_at);
-      return matchesSearch && status.label.toLowerCase() === statusFilter;
+      console.log('Adding device with data:', newDeviceData);
+
+      // Add the device using our service
+      const deviceId = await weatherService.addDevice(newDeviceData);
+
+      console.log('Device added successfully with ID:', deviceId);
+
+      // Show success message
+      setSnackbar({
+        open: true,
+        message: 'Device added successfully',
+        severity: 'success'
+      });
+
+      // Reset the form
+      setNewDeviceData({
+        deviceId: '',
+        applicationId: 'weather-stations',
+        deviceAddress: '',
+        deviceEui: '',
+        joinEui: '',
+        description: '',
+        latitude: '',
+        longitude: ''
+      });
+
+      // Close the dialog
+      handleCloseAddDialog();
+    } catch (error) {
+      console.error('Error adding device:', error);
+      setSnackbar({
+        open: true,
+        message: `Error adding device: ${error.message || 'Unknown error'}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return matchesSearch;
-  });
+  // Handle editing a device
+  const handleEditDevice = (device) => {
+    // Initialize the edit form with the current device data
+    setNewDeviceData({
+      deviceId: device.end_device_ids?.device_id || '',
+      applicationId: device.end_device_ids?.application_ids?.application_id || 'weather-stations',
+      deviceAddress: device.end_device_ids?.dev_addr || '',
+      deviceEui: device.end_device_ids?.dev_eui || '',
+      joinEui: device.end_device_ids?.join_eui || '',
+      description: device.description || '',
+      latitude: device.location?.latitude || '',
+      longitude: device.location?.longitude || ''
+    });
+
+    // Open the add/edit dialog
+    setOpenAddDialog(true);
+  };
+
+  // Handle deleting a device
+  const handleDeleteDevice = async () => {
+    try {
+      setLoading(true);
+
+      // Delete the device using our service
+      const deviceId = selectedDevice?.end_device_ids?.device_id;
+      if (deviceId) {
+        await weatherService.deleteDevice(deviceId);
+
+        // Show success message
+        setSnackbar({
+          open: true,
+          message: 'Device deleted successfully',
+          severity: 'success'
+        });
+      } else {
+        throw new Error('No device ID selected');
+      }
+
+      // Close the dialog
+      handleCloseDeleteDialog();
+    } catch (error) {
+      console.error('Error deleting device:', error);
+      setSnackbar({
+        open: true,
+        message: `Error deleting device: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get signal strength icon based on RSSI value
   const getSignalIcon = (rssi) => {
@@ -309,14 +417,32 @@ const DeviceManagement = ({ devices }) => {
     }
   };
 
-  // Rest of the component methods remain the same as in the previous implementation...
-  // (handleRefreshDevices, handleOpenAddDialog, handleCloseAddDialog, 
-  // handleAddDevice, handleDeleteDevice, handleEditDevice, etc.)
+  // Get unique devices and filter them
+  const uniqueDevices = getUniqueDevices();
+  const filteredDevices = uniqueDevices.filter(device => {
+    const deviceId = device.end_device_ids?.device_id || '';
+    const appId = device.end_device_ids?.application_ids?.application_id || '';
+    const devAddr = device.end_device_ids?.dev_addr || '';
+
+    // Apply text search filter
+    const matchesSearch =
+      deviceId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      devAddr.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Apply status filter if not 'all'
+    if (statusFilter !== 'all') {
+      const status = getDeviceStatus(device.received_at);
+      return matchesSearch && status.label.toLowerCase() === statusFilter;
+    }
+
+    return matchesSearch;
+  });
 
   // Render method
   return (
     <Box>
-      {/* Header with actions */}
+      {/* Header Section */}
       <Box sx={{
         mb: 3,
         background: `linear-gradient(120deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.primary.main, 0.1)})`,
@@ -351,7 +477,7 @@ const DeviceManagement = ({ devices }) => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setOpenAddDialog(true)}
+              onClick={handleOpenAddDialog}
               sx={{
                 fontWeight: 500,
                 boxShadow: 2,
@@ -364,6 +490,29 @@ const DeviceManagement = ({ devices }) => {
             </Button>
           </Grid>
         </Grid>
+      </Box>
+
+      {/* Tabs for different views */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab
+            icon={<DevicesIcon />}
+            iconPosition="start"
+            label="All Devices"
+          />
+          <Tab
+            icon={<TimelineIcon />}
+            iconPosition="start"
+            label="Performance"
+          />
+        </Tabs>
       </Box>
 
       {/* Search and filter controls */}
@@ -570,7 +719,7 @@ const DeviceManagement = ({ devices }) => {
                               Location
                             </Typography>
                             <Typography variant="body2" fontWeight="medium">
-                              {deviceLocation
+                              {deviceLocation 
                                 ? `${deviceLocation.latitude}°N, ${deviceLocation.longitude}°E`
                                 : 'N/A'}
                             </Typography>
@@ -623,7 +772,7 @@ const DeviceManagement = ({ devices }) => {
                       variant="contained"
                       startIcon={<AddIcon />}
                       sx={{ mt: 2 }}
-                      onClick={() => setOpenAddDialog(true)}
+                      onClick={handleOpenAddDialog}
                     >
                       Add Device
                     </Button>
@@ -694,7 +843,7 @@ const DeviceManagement = ({ devices }) => {
                       </TableCell>
                       <TableCell>{devAddr}</TableCell>
                       <TableCell>
-                        {deviceLocation
+                        {deviceLocation 
                           ? `${deviceLocation.latitude}°N, ${deviceLocation.longitude}°E`
                           : 'N/A'}
                       </TableCell>
@@ -737,7 +886,7 @@ const DeviceManagement = ({ devices }) => {
                         variant="contained"
                         startIcon={<AddIcon />}
                         sx={{ mt: 2 }}
-                        onClick={() => setOpenAddDialog(true)}
+                        onClick={handleOpenAddDialog}
                       >
                         Add Device
                       </Button>
@@ -762,9 +911,207 @@ const DeviceManagement = ({ devices }) => {
         </Paper>
       )}
 
-      {/* Add Device Dialog - Previous implementation */}
+      {/* Add Device Dialog */}
+      <Dialog open={openAddDialog} onClose={handleCloseAddDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <DevicesIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Add New Weather Station
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Enter the details of the new weather station device to add it to your network.
+          </DialogContentText>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                label="Device ID"
+                name="deviceId"
+                value={newDeviceData.deviceId}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                required
+                margin="dense"
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Application ID"
+                name="applicationId"
+                value={newDeviceData.applicationId}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                required
+                margin="dense"
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Device Address"
+                name="deviceAddress"
+                value={newDeviceData.deviceAddress}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                required
+                margin="dense"
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Device EUI"
+                name="deviceEui"
+                value={newDeviceData.deviceEui}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                margin="dense"
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Join EUI"
+                name="joinEui"
+                value={newDeviceData.joinEui}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                margin="dense"
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Latitude"
+                name="latitude"
+                value={newDeviceData.latitude}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                margin="dense"
+                variant="outlined"
+                type="number"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Longitude"
+                name="longitude"
+                value={newDeviceData.longitude}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                margin="dense"
+                variant="outlined"
+                type="number"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Description"
+                name="description"
+                value={newDeviceData.description}
+                onChange={handleNewDeviceChange}
+                fullWidth
+                multiline
+                rows={2}
+                margin="dense"
+                variant="outlined"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={handleCloseAddDialog}
+            color="inherit"
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAddDevice}
+            variant="contained"
+            startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
+            disabled={loading}
+          >
+            {loading ? 'Adding...' : 'Add Device'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      {/* Device Management Dialogs and Menus would follow here */}
+      {/* Delete Device Dialog */}
+      <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
+        <DialogTitle sx={{ color: 'error.main' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <DeleteIcon sx={{ mr: 1 }} />
+            Confirm Deletion
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete the device
+            {selectedDevice && (
+              <strong>{` "${selectedDevice.end_device_ids?.device_id || 'Unknown Device'}"? `}</strong>
+            )}
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCloseDeleteDialog} color="inherit">Cancel</Button>
+          <Button
+            onClick={handleDeleteDevice}
+            color="error"
+            variant="contained"
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+            disabled={loading}
+          >
+            {loading ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Device Menu */}
+      <Menu
+        anchorEl={deviceMenuAnchorEl}
+        open={Boolean(deviceMenuAnchorEl)}
+        onClose={handleDeviceMenuClose}
+      >
+        <MenuItem onClick={() => {
+          handleEditDevice(selectedDeviceForMenu);
+          handleDeviceMenuClose();
+        }}>
+          <EditIcon fontSize="small" sx={{ mr: 1 }} />
+          Edit Device
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            handleOpenDeleteDialog(selectedDeviceForMenu);
+            handleDeviceMenuClose();
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+          Delete Device
+        </MenuItem>
+      </Menu>
+
+      {/* Feedback Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -1,12 +1,12 @@
 // src/pages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
+import {
+  Box,
   Drawer,
   AppBar,
   Toolbar,
   IconButton,
-  Typography, 
+  Typography,
   List,
   ListItem,
   ListItemIcon,
@@ -42,7 +42,9 @@ import {
   WbSunny,
   NightsStay as MoonIcon,
   Search as SearchIcon,
-  Help as HelpIcon
+  Help as HelpIcon,
+  Refresh as RefreshIcon,
+  // ExitToApp as LogoutIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -64,16 +66,16 @@ const Dashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentUser, userData, signOut } = useAuth();
-  
+
   // State for managing drawer in mobile view
   const [mobileOpen, setMobileOpen] = useState(false);
-  
+
   // State for managing the active dashboard section
   const [activeSection, setActiveSection] = useState('overview');
-  
+
   // State for user menu
   const [anchorEl, setAnchorEl] = useState(null);
-  
+
   // State for weather data
   const [weatherStations, setWeatherStations] = useState([]);
   const [allStations, setAllStations] = useState([]); // Store all stations
@@ -82,26 +84,26 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  
+
   // New state for notifications
   const [notificationCount, setNotificationCount] = useState(3);
   const [darkMode, setDarkMode] = useState(false);
-  
+
   // Handle drawer toggle
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
-  
+
   // Handle user menu open
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
-  
+
   // Handle user menu close
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
-  
+
   // Handle logout
   const handleLogout = async () => {
     handleMenuClose();
@@ -112,7 +114,7 @@ const Dashboard = () => {
       console.error('Logout error:', error);
     }
   };
-  
+
   // Handle navigation
   const handleNavigation = (section) => {
     setActiveSection(section);
@@ -125,48 +127,48 @@ const Dashboard = () => {
   const handleDeviceChange = (event) => {
     const deviceId = event.target.value;
     setSelectedDeviceId(deviceId);
-    
+
     if (deviceId === 'all') {
       // Show all devices
       setWeatherStations(allStations);
     } else {
       // Filter to show only the selected device
-      const filteredData = allStations.filter(station => 
+      const filteredData = allStations.filter(station =>
         station.end_device_ids?.device_id === deviceId
       );
       setWeatherStations(filteredData);
     }
   };
-  
+
   // Fetch weather station data from API
   useEffect(() => {
     const fetchWeatherData = async () => {
       try {
         setLoading(true);
         console.log("Fetching weather data ...");
-        
+
         // Use our updated function to get data since April 17th
         const startDate = new Date('2025-04-17T00:00:00');
-        
+
         try {
           // First try using our service method
           const stationData = await weatherService.getDataSinceDate(startDate);
           console.log("Data received from service:", stationData.length, "records");
-          
+
           // Update last fetch time
           setLastUpdated(new Date());
-          
+
           // Store all stations
           setAllStations(stationData);
-          
+
           // Extract unique device IDs for the device selector
           const devices = [];
           const deviceIds = new Set();
-          
+
           stationData.forEach(station => {
             const deviceId = station.end_device_ids?.device_id;
             const deviceName = station.end_device_ids?.dev_addr || deviceId;
-            
+
             if (deviceId && !deviceIds.has(deviceId)) {
               deviceIds.add(deviceId);
               devices.push({
@@ -175,36 +177,36 @@ const Dashboard = () => {
               });
             }
           });
-          
+
           setAvailableDevices(devices);
           console.log("Available devices:", devices);
-          
+
           // Apply current device filter
           if (selectedDeviceId && selectedDeviceId !== 'all') {
-            const filteredData = stationData.filter(station => 
+            const filteredData = stationData.filter(station =>
               station.end_device_ids?.device_id === selectedDeviceId
             );
             setWeatherStations(filteredData);
           } else {
             setWeatherStations(stationData);
           }
-          
+
           return; // Exit early if successful
         } catch (serviceError) {
           console.error("Error using service method:", serviceError);
           // Continue to the API fetch as fallback
         }
-        
+
         // Fallback to direct API fetch if service method fails
         const response = await fetch('https://weather-data-marsabit-default-rtdb.firebaseio.com/weather_data.json');
-        
+
         if (!response.ok) {
           throw new Error(`API responded with status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log("Data received from API:", data);
-        
+
         if (!data) {
           console.log("No data found");
           setWeatherStations([]);
@@ -212,10 +214,10 @@ const Dashboard = () => {
           setLoading(false);
           return;
         }
-        
+
         // Transform the data to match the format expected by components
         const stationData = [];
-        
+
         // If data is an object with keys (common in Realtime DB)
         if (typeof data === 'object' && !Array.isArray(data)) {
           Object.keys(data).forEach(key => {
@@ -242,23 +244,23 @@ const Dashboard = () => {
             }
           });
         }
-        
+
         console.log("Processed weather data:", stationData);
-        
+
         // Update last fetch time
         setLastUpdated(new Date());
-        
+
         // Store all stations
         setAllStations(stationData);
-        
+
         // Extract unique device IDs for the device selector
         const devices = [];
         const deviceIds = new Set();
-        
+
         stationData.forEach(station => {
           const deviceId = station.end_device_ids?.device_id;
           const deviceName = station.end_device_ids?.dev_addr || deviceId;
-          
+
           if (deviceId && !deviceIds.has(deviceId)) {
             deviceIds.add(deviceId);
             devices.push({
@@ -267,13 +269,13 @@ const Dashboard = () => {
             });
           }
         });
-        
+
         setAvailableDevices(devices);
         console.log("Available devices:", devices);
-        
+
         // Apply current device filter
         if (selectedDeviceId && selectedDeviceId !== 'all') {
-          const filteredData = stationData.filter(station => 
+          const filteredData = stationData.filter(station =>
             station.end_device_ids?.device_id === selectedDeviceId
           );
           setWeatherStations(filteredData);
@@ -283,7 +285,7 @@ const Dashboard = () => {
       } catch (error) {
         console.error("Error fetching weather data:", error);
         setError(`API fetch error: ${error.message}`);
-        
+
         // Use fallback data
         const fallbackData = [
           {
@@ -326,58 +328,58 @@ const Dashboard = () => {
         setLoading(false);
       }
     };
-    
+
     // Call the fetch function
     fetchWeatherData();
-    
+
     // Set up interval for polling (every 5 minutes)
     const intervalId = setInterval(fetchWeatherData, 500000);
-    
+
     // Clean up the interval on unmount
     return () => {
       clearInterval(intervalId);
     };
   }, []); // Empty dependency array means this effect runs once on mount
-  
+
   // Navigation items
   const navItems = [
-    { 
-      text: 'Overview', 
-      icon: <DashboardIcon />, 
+    {
+      text: 'Overview',
+      icon: <DashboardIcon />,
       section: 'overview',
       description: 'Current weather conditions from all stations'
     },
-    { 
-      text: 'Device Management', 
-      icon: <DevicesIcon />, 
+    {
+      text: 'Device Management',
+      icon: <DevicesIcon />,
       section: 'devices',
-      description: 'Add, edit and configure weather stations' 
+      description: 'Add, edit and configure weather stations'
     },
-    { 
-      text: 'Historical Data', 
-      icon: <HistoryIcon />, 
+    {
+      text: 'Historical Data',
+      icon: <HistoryIcon />,
       section: 'history',
       description: 'View and analyze historical weather patterns'
     },
-    { 
-      text: 'Settings', 
-      icon: <SettingsIcon />, 
+    {
+      text: 'Settings',
+      icon: <SettingsIcon />,
       section: 'settings',
       description: 'Configure dashboard preferences'
     },
-    { 
-      text: 'Debug', 
-      icon: <CodeIcon />, 
+    {
+      text: 'Debug',
+      icon: <CodeIcon />,
       section: 'debug',
       description: 'System diagnostics and technical information'
     }
   ];
-  
+
   // Toggle dark mode
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
   };
-  
+
   // Render the active dashboard section
   const renderDashboardSection = () => {
     if (error) {
@@ -393,7 +395,7 @@ const Dashboard = () => {
         </Paper>
       );
     }
-    
+
     switch (activeSection) {
       case 'devices':
         return <DeviceManagement devices={weatherStations} />;
@@ -404,38 +406,84 @@ const Dashboard = () => {
       case 'debug':
         return <FirebaseDataDebug data={weatherStations} />;
       default:
-        return <WeatherStationOverview 
-                 stations={weatherStations} 
-                 loading={loading} 
-                 lastUpdated={lastUpdated}
-                 selectedDevice={selectedDeviceId}
-                 allDevices={availableDevices}
-                 onDeviceChange={handleDeviceChange}
-               />;
+        return <WeatherStationOverview
+          stations={weatherStations}
+          loading={loading}
+          lastUpdated={lastUpdated}
+          selectedDevice={selectedDeviceId}
+          allDevices={availableDevices}
+          onDeviceChange={handleDeviceChange}
+        />;
     }
   };
-  
+
   // Drawer content
+  // Sidebar component within Dashboard.jsx
+  {/* Drawer content */ }
   const drawer = (
-    <div>
-      <Box sx={{ 
+    <Box 
+      sx={{ 
+        height: '100%', 
         display: 'flex', 
         flexDirection: 'column',
-        alignItems: 'center', 
-        justifyContent: 'center',
-        px: [1],
-        py: 2,
-        background: 'linear-gradient(120deg, #1976d2, #0d47a1)'
-      }}>
-        <Typography variant="h5" component="div" sx={{ fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center' }}>
-          <WbSunny sx={{ mr: 1 }} /> Weather IoT
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5 }}>
-          Dashboard v2.0
-        </Typography>
+        backgroundColor: 'background.paper',
+        borderRight: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+      }}
+    >
+      {/* Branding Header */}
+      <Box 
+        sx={{ 
+          px: 3, 
+          py: 2.5, 
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}
+      >
+        <Avatar 
+          sx={{ 
+            bgcolor: 'primary.main', 
+            width: 40, 
+            height: 40,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+          }}
+        >
+          <WbSunny sx={{ color: 'white' }} />
+        </Avatar>
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" fontWeight="600" color="text.primary">
+              Weather IoT
+            </Typography>
+            <Chip 
+              label="2.0" 
+              size="small" 
+              color="primary" 
+              variant="outlined"
+              sx={{ 
+                height: 20, 
+                fontSize: '0.625rem',
+                fontWeight: 600 
+              }} 
+            />
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            Dashboard Management
+          </Typography>
+        </Box>
       </Box>
-      <Divider />
-      <List component="nav" sx={{ px: 1, py: 1 }}>
+  
+      {/* Rest of the sidebar code remains the same as in the previous implementation */}
+      {/* Navigation Items */}
+      <List 
+        component="nav" 
+        sx={{ 
+          flexGrow: 1, 
+          px: 1, 
+          py: 2 
+        }}
+      >
         {navItems.map((item) => (
           <ListItem 
             button 
@@ -443,87 +491,144 @@ const Dashboard = () => {
             onClick={() => handleNavigation(item.section)}
             selected={activeSection === item.section}
             sx={{
-              mb: 0.5,
-              borderRadius: 2,
+              borderRadius: 1.5,
+              mx: 1,
+              my: 0.5,
+              transition: 'all 0.2s ease',
               '&.Mui-selected': {
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                color: 'primary.main',
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.15)
+                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                '& .MuiListItemIcon-root': {
+                  color: 'primary.main'
+                },
+                '& .MuiTypography-root': {
+                  color: 'primary.main',
+                  fontWeight: 600
                 }
               },
               '&:hover': {
-                bgcolor: alpha(theme.palette.primary.main, 0.05)
+                backgroundColor: alpha(theme.palette.primary.main, 0.04)
               }
             }}
           >
-            <ListItemIcon sx={{ 
-              color: activeSection === item.section ? 'primary.main' : 'inherit',
-              minWidth: 40
-            }}>
+            <ListItemIcon 
+              sx={{ 
+                color: activeSection === item.section ? 'primary.main' : 'text.secondary',
+                minWidth: 48,
+                justifyContent: 'center'
+              }}
+            >
               {item.icon}
             </ListItemIcon>
             <ListItemText 
               primary={item.text} 
-              secondary={activeSection === item.section ? item.description : null}
               primaryTypographyProps={{
-                fontWeight: activeSection === item.section ? 'medium' : 'regular',
-                fontSize: 14
-              }}
-              secondaryTypographyProps={{
-                fontSize: 12
+                variant: 'body2',
+                color: 'text.primary'
               }}
             />
           </ListItem>
         ))}
       </List>
-      <Divider />
-      <Box sx={{ p: 2, mt: 'auto' }}>
-        <Paper 
-          elevation={0} 
+  
+      {/* Footer Section */}
+      <Box 
+        sx={{ 
+          borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          p: 2 
+        }}
+      >
+        {/* Last Updated */}
+        <Box 
           sx={{ 
-            p: 2, 
-            bgcolor: alpha(theme.palette.primary.main, 0.05),
-            borderRadius: 2,
-            mb: 2
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 2,
+            px: 1
           }}
         >
-          <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
+          <RefreshIcon 
+            sx={{ 
+              mr: 1.5, 
+              color: 'text.secondary', 
+              fontSize: 18 
+            }} 
+          />
+          <Typography 
+            variant="caption" 
+            color="text.secondary"
+          >
             Last Updated
           </Typography>
-          <Typography variant="body2" sx={{ fontSize: 12 }}>
+          <Typography 
+            variant="caption" 
+            color="text.secondary"
+            sx={{ ml: 1 }}
+          >
             {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Never'}
           </Typography>
-        </Paper>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar sx={{ width: 32, height: 32, mr: 1.5, bgcolor: 'primary.main' }}>
-            {currentUser?.displayName?.[0] || currentUser?.email?.[0] || 'U'}
-          </Avatar>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 'medium', lineHeight: 1.2 }}>
-              {currentUser?.displayName || currentUser?.email}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {userData?.role || 'User'}
-            </Typography>
+        </Box>
+  
+        {/* User Profile */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            px: 1
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Avatar 
+              sx={{ 
+                width: 36, 
+                height: 36, 
+                mr: 2, 
+                bgcolor: 'primary.main',
+                fontSize: '0.875rem'
+              }}
+            >
+              {currentUser?.displayName?.[0] || currentUser?.email?.[0] || 'U'}
+            </Avatar>
+            <Box>
+              <Typography 
+                variant="body2" 
+                fontWeight="600" 
+                color="text.primary"
+              >
+                {currentUser?.displayName || currentUser?.email}
+              </Typography>
+              <Typography 
+                variant="caption" 
+                color="text.secondary"
+              >
+                {userData?.role || 'User'}
+              </Typography>
+            </Box>
           </Box>
-          <IconButton 
-            size="small" 
-            color="primary"
-            onClick={handleLogout}
-            title="Logout"
-          >
-            <LogoutIcon fontSize="small" />
-          </IconButton>
+  
+          <Tooltip title="Logout">
+            <IconButton 
+              size="small" 
+              color="primary"
+              onClick={handleLogout}
+              sx={{ 
+                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.08)
+                }
+              }}
+            >
+              <LogoutIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
-    </div>
+    </Box>
   );
-  
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      
+
       {/* App Bar */}
       <AppBar
         position="fixed"
@@ -549,18 +654,18 @@ const Dashboard = () => {
               {navItems.find(item => item.section === activeSection)?.text || 'Dashboard'}
             </Typography>
           </Box>
-          
+
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {/* Device Selector */}
             {availableDevices.length > 1 && (
               <Chip
                 icon={<FilterIcon fontSize="small" />}
-                label={selectedDeviceId === 'all' 
+                label={selectedDeviceId === 'all'
                   ? 'All Devices'
                   : availableDevices.find(d => d.id === selectedDeviceId)?.name || selectedDeviceId
                 }
                 variant="outlined"
-                sx={{ 
+                sx={{
                   mr: 1,
                   '& .MuiChip-label': { fontSize: 13 }
                 }}
@@ -569,40 +674,40 @@ const Dashboard = () => {
                   select.style.position = 'absolute';
                   select.style.left = '-9999px';
                   document.body.appendChild(select);
-                  
+
                   // Add options
                   const allOption = document.createElement('option');
                   allOption.value = 'all';
                   allOption.textContent = 'All Devices';
                   select.appendChild(allOption);
-                  
+
                   availableDevices.forEach(device => {
                     const option = document.createElement('option');
                     option.value = device.id;
                     option.textContent = device.name || device.id;
                     select.appendChild(option);
                   });
-                  
+
                   // Set current value
                   select.value = selectedDeviceId;
-                  
+
                   // Add change handler
                   select.addEventListener('change', (e) => {
                     handleDeviceChange({ target: { value: e.target.value } });
                     document.body.removeChild(select);
                   });
-                  
+
                   // Show select dropdown
                   select.focus();
                   select.click();
                 }}
               />
             )}
-            
+
             {/* Mode toggle */}
             <Tooltip title={darkMode ? "Light Mode" : "Dark Mode"}>
-              <IconButton 
-                color="inherit" 
+              <IconButton
+                color="inherit"
                 onClick={toggleDarkMode}
                 size="small"
                 sx={{ mr: 1 }}
@@ -610,21 +715,21 @@ const Dashboard = () => {
                 {darkMode ? <WbSunny /> : <MoonIcon />}
               </IconButton>
             </Tooltip>
-            
+
             {/* Help button */}
             <Tooltip title="Help">
-              <IconButton 
+              <IconButton
                 color="inherit"
-                size="small" 
+                size="small"
                 sx={{ mr: 1 }}
               >
                 <HelpIcon />
               </IconButton>
             </Tooltip>
-            
+
             {/* Notification Icon */}
             <Tooltip title="Notifications">
-              <IconButton 
+              <IconButton
                 color="inherit"
                 size="small"
                 sx={{ mr: 1 }}
@@ -634,7 +739,7 @@ const Dashboard = () => {
                 </Badge>
               </IconButton>
             </Tooltip>
-            
+
             {/* User Menu */}
             <Tooltip title="Account">
               <IconButton
@@ -675,7 +780,7 @@ const Dashboard = () => {
           </Box>
         </Toolbar>
       </AppBar>
-      
+
       {/* Drawer - responsive for mobile and desktop */}
       <Drawer
         variant={isMobile ? "temporary" : "permanent"}
@@ -684,8 +789,8 @@ const Dashboard = () => {
         sx={{
           width: drawerWidth,
           flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { 
-            width: drawerWidth, 
+          [`& .MuiDrawer-paper`]: {
+            width: drawerWidth,
             boxSizing: 'border-box',
             bgcolor: darkMode ? '#1a1a27' : 'background.paper',
             color: darkMode ? 'rgba(255,255,255,0.85)' : 'inherit'
@@ -694,7 +799,7 @@ const Dashboard = () => {
       >
         {drawer}
       </Drawer>
-      
+
       {/* Main Content */}
       <Box
         component="main"
@@ -708,38 +813,38 @@ const Dashboard = () => {
         }}
       >
         <Toolbar /> {/* This provides spacing below the app bar */}
-        
+
         {/* Page header */}
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
             <Typography variant="h5" fontWeight="medium" color={darkMode ? 'white' : 'inherit'}>
               {navItems.find(item => item.section === activeSection)?.text || 'Dashboard'}
             </Typography>
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               color={darkMode ? 'rgba(255,255,255,0.6)' : 'text.secondary'}
             >
               {navItems.find(item => item.section === activeSection)?.description || 'Weather IoT monitoring system'}
             </Typography>
           </Box>
-          
+
           {/* Optional page-specific actions would go here */}
         </Box>
-        
+
         {/* Show loader if data is still loading */}
         {loading ? (
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
               height: '70vh',
               flexDirection: 'column'
             }}
           >
-           <CircularProgress />
-            <Typography 
-              variant="body2" 
+            <CircularProgress />
+            <Typography
+              variant="body2"
               sx={{ mt: 2 }}
               color={darkMode ? 'rgba(255,255,255,0.6)' : 'text.secondary'}
             >
@@ -758,4 +863,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-            

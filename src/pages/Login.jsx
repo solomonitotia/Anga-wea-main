@@ -10,19 +10,35 @@ import {
   Link, 
   InputAdornment, 
   IconButton, 
+  Divider,
+  Paper,
+  FormControl,
+  InputLabel,
+  OutlinedInput,
   CircularProgress,
   Alert,
-  Card,
-  CardContent
+  Chip,
+  Avatar
 } from '@mui/material';
 import { 
   Visibility, 
   VisibilityOff, 
-  LockOutlined 
+  Lock as LockIcon,
+  Email as EmailIcon,
+  Google as GoogleIcon,
+  GitHub as GitHubIcon,
+  Microsoft as MicrosoftIcon
 } from '@mui/icons-material';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase/config';
+import { 
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  GithubAuthProvider,
+  OAuthProvider // For Microsoft
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
@@ -53,7 +69,8 @@ const Login = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleLogin = async (e) => {
+  // Standard Email/Password Login
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -74,103 +91,269 @@ const Login = () => {
     }
   };
 
+  // Social Login Handler
+  const handleSocialLogin = async (provider) => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      let authProvider;
+      switch (provider) {
+        case 'google':
+          authProvider = new GoogleAuthProvider();
+          break;
+        case 'github':
+          authProvider = new GithubAuthProvider();
+          break;
+        case 'microsoft':
+          authProvider = new OAuthProvider('microsoft.com');
+          break;
+        default:
+          throw new Error('Invalid provider');
+      }
+
+      // Perform social login
+      const result = await signInWithPopup(auth, authProvider);
+      const user = result.user;
+
+      // Check if user exists in Firestore, if not create a profile
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        // Create new user document
+        await setDoc(userDocRef, {
+          firstName: user.displayName?.split(' ')[0] || '',
+          lastName: user.displayName?.split(' ')[1] || '',
+          email: user.email,
+          photoURL: user.photoURL,
+          createdAt: new Date(),
+          role: 'user'
+        });
+      }
+
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Social login error:', error);
+      setError(
+        error.code === 'auth/popup-closed-by-user' ? 'Login cancelled' :
+        error.code === 'auth/account-exists-with-different-credential' 
+          ? 'Account exists with different credential' :
+        'Authentication failed. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Container component="main" maxWidth="xs">
-      <Card 
+      <Paper 
         elevation={3} 
         sx={{ 
           mt: 8, 
-          borderRadius: 2
-        }}
-      >
-        <CardContent sx={{ 
+          p: 4, 
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center',
-          p: 4,
+          borderRadius: 3
+        }}
+      >
+        {/* Brand and Title */}
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          mb: 3
         }}>
-          <Box 
+          <Avatar 
             sx={{ 
-              backgroundColor: 'primary.main', 
-              p: 2, 
-              borderRadius: '50%', 
-              mb: 2 
+              m: 1, 
+              bgcolor: 'primary.main', 
+              width: 56, 
+              height: 56 
             }}
           >
-            <LockOutlined sx={{ color: 'white' }} />
-          </Box>
-          <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
+            <LockIcon fontSize="large" />
+          </Avatar>
+          <Typography component="h1" variant="h5">
             Weather IoT Dashboard
           </Typography>
-          
-          {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+          <Chip 
+            label="Secure Login" 
+            color="primary" 
+            variant="outlined" 
+            size="small" 
+            sx={{ mt: 1 }} 
+          />
+        </Box>
 
-          <Box component="form" onSubmit={handleLogin} sx={{ mt: 1, width: '100%' }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              autoFocus
-              value={formData.email}
-              onChange={handleChange}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Login Form */}
+        <Box component="form" onSubmit={handleEmailLogin} sx={{ width: '100%' }}>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email Address"
+            name="email"
+            autoComplete="email"
+            autoFocus
+            value={formData.email}
+            onChange={handleChange}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl 
+            variant="outlined" 
+            fullWidth 
+            margin="normal"
+            required
+          >
+            <InputLabel htmlFor="password">Password</InputLabel>
+            <OutlinedInput
+              id="password"
+              type={showPassword ? 'text' : 'password'}
               name="password"
               label="Password"
-              type={showPassword ? 'text' : 'password'}
-              id="password"
-              autoComplete="current-password"
               value={formData.password}
               onChange={handleChange}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={handleClickShowPassword}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
+              autoComplete="current-password"
+              startAdornment={
+                <InputAdornment position="start">
+                  <LockIcon color="action" />
+                </InputAdornment>
+              }
+              endAdornment={
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={handleClickShowPassword}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              }
             />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2, py: 1.5 }}
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Sign In'}
-            </Button>
-            <Grid container>
-              <Grid item xs>
-                <Link href="#" variant="body2" onClick={() => navigate('/forgot-password')}>
-                  Forgot password?
-                </Link>
-              </Grid>
-              <Grid item>
-                <Link href="#" variant="body2" onClick={() => navigate('/register')}>
-                  {"Don't have an account? Sign Up"}
-                </Link>
-              </Grid>
+          </FormControl>
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ 
+              mt: 3, 
+              mb: 2, 
+              py: 1.5,
+              background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
+              }
+            }}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Sign In'}
+          </Button>
+
+          {/* Social Login Divider */}
+          <Divider sx={{ my: 2 }}>
+            <Chip label="OR" size="small" />
+          </Divider>
+
+          {/* Social Login Buttons */}
+          <Grid container spacing={2}>
+            <Grid item xs={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<GoogleIcon />}
+                onClick={() => handleSocialLogin('google')}
+                disabled={loading}
+                sx={{ 
+                  color: '#db4437', 
+                  borderColor: '#db4437',
+                  '&:hover': {
+                    bgcolor: 'rgba(219, 68, 55, 0.04)'
+                  }
+                }}
+              >
+                Google
+              </Button>
             </Grid>
-          </Box>
-        </CardContent>
-      </Card>
+            <Grid item xs={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<GitHubIcon />}
+                onClick={() => handleSocialLogin('github')}
+                disabled={loading}
+                sx={{ 
+                  color: '#333', 
+                  borderColor: '#333',
+                  '&:hover': {
+                    bgcolor: 'rgba(51, 51, 51, 0.04)'
+                  }
+                }}
+              >
+                GitHub
+              </Button>
+            </Grid>
+            <Grid item xs={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<MicrosoftIcon />}
+                onClick={() => handleSocialLogin('microsoft')}
+                disabled={loading}
+                sx={{ 
+                  color: '#00a4ef', 
+                  borderColor: '#00a4ef',
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 164, 239, 0.04)'
+                  }
+                }}
+              >
+                Microsoft
+              </Button>
+            </Grid>
+          </Grid>
+
+          {/* Additional Links */}
+          <Grid container justifyContent="space-between" sx={{ mt: 2 }}>
+            <Grid item>
+              <Link 
+                href="#" 
+                variant="body2" 
+                onClick={() => navigate('/forgot-password')}
+              >
+                Forgot password?
+              </Link>
+            </Grid>
+            <Grid item>
+              <Link 
+                href="#" 
+                variant="body2" 
+                onClick={() => navigate('/register')}
+              >
+                {"Don't have an account? Sign Up"}
+              </Link>
+            </Grid>
+          </Grid>
+        </Box>
+      </Paper>
     </Container>
   );
 };
