@@ -1,40 +1,72 @@
 // src/pages/Register.jsx
 import React, { useState } from 'react';
 import { 
-  Container, 
   Box, 
   Typography, 
   TextField, 
   Button, 
-  Paper, 
-  Grid, 
-  Link, 
-  InputAdornment, 
-  IconButton, 
-  CircularProgress,
-  Alert,
+  Checkbox,
+  FormControlLabel,
+  Paper,
+  Link,
+  IconButton,
+  InputAdornment,
+  Container,
+  Grid,
   Stepper,
   Step,
   StepLabel
 } from '@mui/material';
 import { 
   Visibility, 
-  VisibilityOff, 
-  PersonAdd,
+  VisibilityOff,
   ArrowBack,
   ArrowForward,
   Check
 } from '@mui/icons-material';
-import { useNavigate, Navigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
-import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+
+// Create a theme with green as primary color
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#4CAF50',
+      light: '#e8f5e9',
+      dark: '#388E3C',
+    },
+    background: {
+      default: '#e8f5e9',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 4,
+          textTransform: 'none',
+          padding: '10px 0',
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#f5f9ff',
+          borderRadius: 4,
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 4,
+          },
+        },
+      },
+    },
+  },
+});
 
 const Register = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -42,17 +74,15 @@ const Register = () => {
     password: '',
     confirmPassword: ''
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
-  const [formErrors, setFormErrors] = useState({});
-  
-  // Redirect if already logged in
-  if (currentUser) {
-    return <Navigate to="/dashboard" />;
-  }
 
-  const steps = ['Personal Information', 'Account Setup', 'Confirmation'];
+  // Steps for registration process
+  const steps = ['Personal Details', 'Account Setup', 'Confirmation'];
+
+  const handleClickShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -60,40 +90,36 @@ const Register = () => {
       ...formData,
       [name]: value
     });
-    
-    // Clear field-specific error when user types
-    if (formErrors[name]) {
-      setFormErrors({
-        ...formErrors,
-        [name]: ''
-      });
-    }
-  };
-
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
   };
 
   const validateStep = (step) => {
-    const errors = {};
+    setError('');
     
     if (step === 0) {
-      if (!formData.firstName.trim()) errors.firstName = 'First name is required';
-      if (!formData.lastName.trim()) errors.lastName = 'Last name is required';
+      if (!formData.firstName.trim() || !formData.lastName.trim()) {
+        setError('First name and last name are required');
+        return false;
+      }
     } else if (step === 1) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!formData.email) errors.email = 'Email is required';
-      else if (!emailRegex.test(formData.email)) errors.email = 'Invalid email format';
-      
-      if (!formData.password) errors.password = 'Password is required';
-      else if (formData.password.length < 6) errors.password = 'Password must be at least 6 characters';
-      
-      if (formData.password !== formData.confirmPassword) errors.confirmPassword = 'Passwords do not match';
-      if (!formData.confirmPassword) errors.confirmPassword = 'Please confirm your password';
+      if (!formData.email.trim()) {
+        setError('Email is required');
+        return false;
+      }
+      if (!formData.password.trim()) {
+        setError('Password is required');
+        return false;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        return false;
+      }
+      if (!acceptTerms) {
+        setError('Please accept the terms and conditions');
+        return false;
+      }
     }
     
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return true;
   };
 
   const handleNext = () => {
@@ -106,266 +132,443 @@ const Register = () => {
     setActiveStep((prevStep) => prevStep - 1);
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    if (!validateStep(1)) return;
-    
-    setLoading(true);
-    setError('');
-    
-    try {
-      // Create the user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        formData.email, 
-        formData.password
-      );
-      
-      // Update the user profile with name
-      await updateProfile(userCredential.user, {
-        displayName: `${formData.firstName} ${formData.lastName}`
-      });
-      
-      // Store additional user data in Firestore
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        createdAt: new Date(),
-        role: 'user' // Default role
-      });
-      
-      // Navigate to the final step
-      setActiveStep(2);
-    } catch (error) {
-      console.error('Registration error:', error);
-      setError(
-        error.code === 'auth/email-already-in-use' ? 'Email is already in use' :
-        error.code === 'auth/invalid-email' ? 'Invalid email format' :
-        error.code === 'auth/weak-password' ? 'Password is too weak' :
-        'Registration failed. Please try again.'
-      );
-      setActiveStep(1); // Return to account step on error
-    } finally {
-      setLoading(false);
+  const handleRegister = () => {
+    if (validateStep(1)) {
+      // Here you would typically handle the registration process
+      console.log('Register with:', formData);
+      setActiveStep(2); // Move to confirmation step
     }
   };
 
-  const renderStepContent = (step) => {
-    switch (step) {
-      case 0:
-        return (
-          <>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="firstName"
-              label="First Name"
-              name="firstName"
-              autoComplete="given-name"
-              value={formData.firstName}
-              onChange={handleChange}
-              error={!!formErrors.firstName}
-              helperText={formErrors.firstName}
-              autoFocus
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="lastName"
-              label="Last Name"
-              name="lastName"
-              autoComplete="family-name"
-              value={formData.lastName}
-              onChange={handleChange}
-              error={!!formErrors.lastName}
-              helperText={formErrors.lastName}
-            />
-            <Button
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2, py: 1.5 }}
-              onClick={handleNext}
-              endIcon={<ArrowForward />}
-            >
-              Next
-            </Button>
-          </>
-        );
-      case 1:
-        return (
-          <>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              value={formData.email}
-              onChange={handleChange}
-              error={!!formErrors.email}
-              helperText={formErrors.email}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              id="password"
-              autoComplete="new-password"
-              value={formData.password}
-              onChange={handleChange}
-              error={!!formErrors.password}
-              helperText={formErrors.password}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={handleClickShowPassword}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="confirmPassword"
-              label="Confirm Password"
-              type={showPassword ? 'text' : 'password'}
-              id="confirmPassword"
-              autoComplete="new-password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              error={!!formErrors.confirmPassword}
-              helperText={formErrors.confirmPassword}
-            />
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={6}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={handleBack}
-                  startIcon={<ArrowBack />}
-                >
-                  Back
-                </Button>
-              </Grid>
-              <Grid item xs={6}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={handleRegister}
-                  disabled={loading}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Register'}
-                </Button>
-              </Grid>
-            </Grid>
-          </>
-        );
-      case 2:
-        return (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
-            <Box 
-              sx={{ 
-                backgroundColor: 'success.main', 
-                p: 2, 
-                borderRadius: '50%', 
-                mb: 2,
-                mx: 'auto',
-                width: 'fit-content'
-              }}
-            >
-              <Check sx={{ color: 'white', fontSize: 40 }} />
-            </Box>
-            <Typography variant="h5" gutterBottom>
-              Registration Successful!
-            </Typography>
-            <Typography color="text.secondary" paragraph>
-              Your account has been created successfully. You can now log in to access the Weather IoT Dashboard.
-            </Typography>
-            <Button
-              variant="contained"
-              sx={{ mt: 3 }}
-              onClick={() => navigate('/login')}
-            >
-              Go to Login
-            </Button>
-          </Box>
-        );
-      default:
-        return null;
-    }
+  const goToLogin = () => {
+    navigate('/login');
   };
 
   return (
-    <Container component="main" maxWidth="sm">
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          mt: 8, 
-          p: 4, 
-          display: 'flex', 
-          flexDirection: 'column', 
+    <ThemeProvider theme={theme}>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          backgroundColor: 'background.default',
+          display: 'flex',
           alignItems: 'center',
-          borderRadius: 2
+          justifyContent: 'center',
+          p: 2,
         }}
       >
-        <Box 
-          sx={{ 
-            backgroundColor: 'primary.main', 
-            p: 2, 
-            borderRadius: '50%', 
-            mb: 2 
-          }}
-        >
-          <PersonAdd sx={{ color: 'white' }} />
-        </Box>
-        <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-          Create an Account
-        </Typography>
-        
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ width: '100%', mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-        
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        <Container maxWidth="lg" sx={{ mx: 'auto' }}>
+          <Paper
+            elevation={3}
+            sx={{
+              display: 'flex',
+              borderRadius: 3,
+              overflow: 'hidden',
+              maxWidth: '100%',
+            }}
+          >
+            {/* Left section with illustration */}
+            <Box
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                flexDirection: 'column',
+                width: '50%',
+                p: 4,
+              }}
+            >
+              <Box sx={{ mb: 2 }}>
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  sx={{ fontWeight: 'bold' }}
+                >
+                  AngaTech 1.0
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Public Platform
+                </Typography>
+              </Box>
 
-        <Box component="form" sx={{ mt: 1, width: '100%' }}>
-          {renderStepContent(activeStep)}
-          
-          {activeStep !== 2 && (
-            <Grid container justifyContent="center" sx={{ mt: 2 }}>
-              <Grid item>
-                <Link href="#" variant="body2" onClick={() => navigate('/login')}>
-                  Already have an account? Sign in
-                </Link>
-              </Grid>
-            </Grid>
-          )}
-        </Box>
-      </Paper>
-    </Container>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexGrow: 1,
+                  p: 2,
+                }}
+              >
+                {/* Weather registration illustration */}
+                <img
+                  src="/assets/register-illustration.svg" 
+                  alt="Registration Illustration"
+                  style={{
+                    maxWidth: '100%',
+                    height: 'auto',
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Right section with registration form */}
+            <Box
+              sx={{
+                width: { xs: '100%', md: '50%' },
+                p: 4,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Mobile branding (only visible on small screens) */}
+              <Box sx={{ 
+                display: { xs: 'block', md: 'none' }, 
+                mb: 3 
+              }}>
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  sx={{ fontWeight: 'bold' }}
+                >
+                  AngaTech 1.0
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Public Platform
+                </Typography>
+              </Box>
+
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{ mb: 2 }}
+              >
+                Register
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Create your account to access the AngaTech platform
+              </Typography>
+
+              {/* Stepper for registration process */}
+              <Stepper 
+                activeStep={activeStep} 
+                alternativeLabel 
+                sx={{ mb: 4 }}
+              >
+                {steps.map((label) => (
+                  <Step key={label}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+
+              {error && (
+                <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+                  {error}
+                </Typography>
+              )}
+
+              {/* Step 1: Personal Details */}
+              {activeStep === 0 && (
+                <Box>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        First Name
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        placeholder="Enter first name"
+                        sx={{ mb: 3 }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        Last Name
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        placeholder="Enter last name"
+                        sx={{ mb: 3 }}
+                      />
+                    </Grid>
+                  </Grid>
+                  
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between',
+                      mt: 2 
+                    }}
+                  >
+                    <Button
+                      variant="outlined"
+                      startIcon={<ArrowBack />}
+                      onClick={goToLogin}
+                      sx={{ 
+                        width: '48%',
+                        borderColor: 'primary.main', 
+                        color: 'primary.main'
+                      }}
+                    >
+                      Back to Login
+                    </Button>
+                    
+                    <Button
+                      variant="contained"
+                      endIcon={<ArrowForward />}
+                      onClick={handleNext}
+                      sx={{ 
+                        width: '48%',
+                        bgcolor: 'primary.main'
+                      }}
+                    >
+                      Next Step
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Step 2: Account Setup */}
+              {activeStep === 1 && (
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Email
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="Enter your email"
+                    sx={{ mb: 3 }}
+                  />
+                  
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Password
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Create password"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={handleClickShowPassword}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ mb: 3 }}
+                  />
+                  
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Confirm Password
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    name="confirmPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Confirm password"
+                    sx={{ mb: 3 }}
+                  />
+                  
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        color="primary"
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        I accept the terms and conditions
+                      </Typography>
+                    }
+                    sx={{ mb: 3 }}
+                  />
+                  
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between' 
+                    }}
+                  >
+                    <Button
+                      variant="outlined"
+                      startIcon={<ArrowBack />}
+                      onClick={handleBack}
+                      sx={{ 
+                        width: '48%',
+                        borderColor: 'primary.main', 
+                        color: 'primary.main'
+                      }}
+                    >
+                      Back
+                    </Button>
+                    
+                    <Button
+                      variant="contained"
+                      onClick={handleRegister}
+                      sx={{ 
+                        width: '48%',
+                        bgcolor: 'primary.main'
+                      }}
+                    >
+                      Create Account
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Step 3: Confirmation */}
+              {activeStep === 2 && (
+                <Box 
+                  sx={{ 
+                    textAlign: 'center',
+                    py: 4 
+                  }}
+                >
+                  <Box 
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      bgcolor: 'primary.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mx: 'auto',
+                      mb: 3
+                    }}
+                  >
+                    <Check sx={{ fontSize: 40, color: 'white' }} />
+                  </Box>
+                  
+                  <Typography variant="h5" gutterBottom sx={{ fontWeight: 'medium' }}>
+                    Registration Successful!
+                  </Typography>
+                  
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                    Your account has been created successfully. You can now login to access the AngaTech platform.
+                  </Typography>
+                  
+                  <Button
+                    variant="contained"
+                    onClick={goToLogin}
+                    sx={{ 
+                      px: 4,
+                      py: 1.5,
+                      bgcolor: 'primary.main'
+                    }}
+                  >
+                    Proceed to Login
+                  </Button>
+                </Box>
+              )}
+
+              {/* Social media options (only show in steps 0 and 1) */}
+              {activeStep < 2 && (
+                <>
+                  <Box 
+                    sx={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      my: 3
+                    }}
+                  >
+                    <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mx: 2 }}>
+                      or register with
+                    </Typography>
+                    <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }} />
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: 2,
+                    }}
+                  >
+                    {/* Social media icons */}
+                    <IconButton
+                      sx={{
+                        color: '#1877F2',
+                        '&:hover': { bgcolor: 'rgba(24, 119, 242, 0.1)' },
+                      }}
+                    >
+                      <img
+                        src="/assets/facebook-icon.svg"
+                        alt="Facebook"
+                        width={24}
+                        height={24}
+                      />
+                    </IconButton>
+                    <IconButton
+                      sx={{
+                        color: '#E4405F',
+                        '&:hover': { bgcolor: 'rgba(228, 64, 95, 0.1)' },
+                      }}
+                    >
+                      <img
+                        src="/assets/instagram-icon.svg"
+                        alt="Instagram"
+                        width={24}
+                        height={24}
+                      />
+                    </IconButton>
+                    <IconButton
+                      sx={{
+                        color: '#0A66C2',
+                        '&:hover': { bgcolor: 'rgba(10, 102, 194, 0.1)' },
+                      }}
+                    >
+                      <img
+                        src="/assets/linkedin-icon.svg"
+                        alt="LinkedIn"
+                        width={24}
+                        height={24}
+                      />
+                    </IconButton>
+                    <IconButton
+                      sx={{
+                        color: '#1DA1F2',
+                        '&:hover': { bgcolor: 'rgba(29, 161, 242, 0.1)' },
+                      }}
+                    >
+                      <img
+                        src="/assets/twitter-icon.svg"
+                        alt="Twitter"
+                        width={24}
+                        height={24}
+                      />
+                    </IconButton>
+                  </Box>
+                </>
+              )}
+            </Box>
+          </Paper>
+        </Container>
+      </Box>
+    </ThemeProvider>
   );
 };
 

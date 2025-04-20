@@ -1,360 +1,403 @@
 // src/pages/Login.jsx
 import React, { useState } from 'react';
 import { 
-  Container, 
   Box, 
   Typography, 
   TextField, 
   Button, 
-  Grid, 
-  Link, 
-  InputAdornment, 
-  IconButton, 
-  Divider,
+  Checkbox,
+  FormControlLabel,
   Paper,
-  FormControl,
-  InputLabel,
-  OutlinedInput,
-  CircularProgress,
-  Alert,
-  Chip,
-  Avatar
+  Link,
+  IconButton,
+  InputAdornment,
+  Container,
+  CircularProgress
 } from '@mui/material';
 import { 
   Visibility, 
-  VisibilityOff, 
-  Lock as LockIcon,
-  Email as EmailIcon,
-  Google as GoogleIcon,
-  GitHub as GitHubIcon,
-  Microsoft as MicrosoftIcon
+  VisibilityOff 
 } from '@mui/icons-material';
-import { useNavigate, Navigate } from 'react-router-dom';
-import { 
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  GithubAuthProvider,
-  OAuthProvider // For Microsoft
-} from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
-import { useAuth } from '../contexts/AuthContext';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+
+// Create a theme with green as primary color
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#4CAF50',
+      light: '#e8f5e9',
+      dark: '#388E3C',
+    },
+    background: {
+      default: '#e8f5e9',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 4,
+          textTransform: 'none',
+          padding: '10px 0',
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#f5f9ff',
+          borderRadius: 4,
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 4,
+          },
+        },
+      },
+    },
+  },
+});
 
 const Login = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
-  
-  // Redirect if already logged in
-  if (currentUser) {
-    return <Navigate to="/dashboard" />;
-  }
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-  };
+  const [loading, setLoading] = useState(false);
 
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
   };
 
-  // Standard Email/Password Login
-  const handleEmailLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    try {
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Login error:', error);
-      setError(
-        error.code === 'auth/user-not-found' ? 'User not found' :
-        error.code === 'auth/wrong-password' ? 'Invalid password' :
-        error.code === 'auth/invalid-email' ? 'Invalid email format' :
-        'Authentication failed. Please try again.'
-      );
-    } finally {
-      setLoading(false);
+  const handleLogin = () => {
+    // Validate form inputs
+    if (!email.trim()) {
+      setError('Please enter your email');
+      return;
     }
-  };
-
-  // Social Login Handler
-  const handleSocialLogin = async (provider) => {
-    setLoading(true);
-    setError('');
     
-    try {
-      let authProvider;
-      switch (provider) {
-        case 'google':
-          authProvider = new GoogleAuthProvider();
-          break;
-        case 'github':
-          authProvider = new GithubAuthProvider();
-          break;
-        case 'microsoft':
-          authProvider = new OAuthProvider('microsoft.com');
-          break;
-        default:
-          throw new Error('Invalid provider');
-      }
-
-      // Perform social login
-      const result = await signInWithPopup(auth, authProvider);
-      const user = result.user;
-
-      // Check if user exists in Firestore, if not create a profile
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        // Create new user document
-        await setDoc(userDocRef, {
-          firstName: user.displayName?.split(' ')[0] || '',
-          lastName: user.displayName?.split(' ')[1] || '',
-          email: user.email,
-          photoURL: user.photoURL,
-          createdAt: new Date(),
+    if (!password.trim()) {
+      setError('Please enter your password');
+      return;
+    }
+    
+    if (!acceptTerms) {
+      setError('Please accept the terms and conditions');
+      return;
+    }
+    
+    // Clear any previous errors
+    setError('');
+    setLoading(true);
+    
+    // Simulate authentication - replace with your actual auth logic
+    setTimeout(() => {
+      try {
+        // Store auth state in localStorage so it persists across page refreshes
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('user', JSON.stringify({ 
+          email, 
+          name: email.split('@')[0],
           role: 'user'
-        });
+        }));
+        
+        // First try React Router navigation
+        navigate('/dashboard');
+        
+        // If that doesn't work, try a direct location change with a query param
+        // to prevent redirect loops
+        setTimeout(() => {
+          window.location.href = '/dashboard?auth=true';
+        }, 500);
+        
+      } catch (err) {
+        console.error('Authentication error:', err);
+        setError('Login failed. Please try again.');
+        setLoading(false);
       }
-
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Social login error:', error);
-      setError(
-        error.code === 'auth/popup-closed-by-user' ? 'Login cancelled' :
-        error.code === 'auth/account-exists-with-different-credential' 
-          ? 'Account exists with different credential' :
-        'Authentication failed. Please try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
+    }, 1000);
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          mt: 8, 
-          p: 4, 
-          display: 'flex', 
-          flexDirection: 'column', 
+    <ThemeProvider theme={theme}>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          backgroundColor: 'background.default',
+          display: 'flex',
           alignItems: 'center',
-          borderRadius: 3
+          justifyContent: 'center',
+          p: 2,
         }}
       >
-        {/* Brand and Title */}
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center',
-          mb: 3
-        }}>
-          <Avatar 
-            sx={{ 
-              m: 1, 
-              bgcolor: 'primary.main', 
-              width: 56, 
-              height: 56 
+        <Container maxWidth="lg" sx={{ mx: 'auto' }}>
+          <Paper
+            elevation={3}
+            sx={{
+              display: 'flex',
+              borderRadius: 3,
+              overflow: 'hidden',
+              maxWidth: '100%',
             }}
           >
-            <LockIcon fontSize="large" />
-          </Avatar>
-          <Typography component="h1" variant="h5">
-            Weather IoT Dashboard
-          </Typography>
-          <Chip 
-            label="Secure Login" 
-            color="primary" 
-            variant="outlined" 
-            size="small" 
-            sx={{ mt: 1 }} 
-          />
-        </Box>
+            {/* Left section with illustration */}
+            <Box
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                flexDirection: 'column',
+                width: '50%',
+                p: 4,
+              }}
+            >
+              <Box sx={{ mb: 2 }}>
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  sx={{ fontWeight: 'bold' }}
+                >
+                  AngaTech 1.0
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Public Platform
+                </Typography>
+              </Box>
 
-        {/* Error Alert */}
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexGrow: 1,
+                  p: 2,
+                }}
+              >
+                {/* Weather illustration */}
+                <img
+                  src="/assets/weather-person.svg" 
+                  alt="Weather Illustration"
+                  style={{
+                    maxWidth: '100%',
+                    height: 'auto',
+                  }}
+                />
+              </Box>
+            </Box>
 
-        {/* Login Form */}
-        <Box component="form" onSubmit={handleEmailLogin} sx={{ width: '100%' }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-            value={formData.email}
-            onChange={handleChange}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <EmailIcon color="action" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl 
-            variant="outlined" 
-            fullWidth 
-            margin="normal"
-            required
-          >
-            <InputLabel htmlFor="password">Password</InputLabel>
-            <OutlinedInput
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              name="password"
-              label="Password"
-              value={formData.password}
-              onChange={handleChange}
-              autoComplete="current-password"
-              startAdornment={
-                <InputAdornment position="start">
-                  <LockIcon color="action" />
-                </InputAdornment>
-              }
-              endAdornment={
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={handleClickShowPassword}
-                    edge="end"
+            {/* Right section with login form */}
+            <Box
+              sx={{
+                width: { xs: '100%', md: '50%' },
+                p: 4,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Mobile branding (only visible on small screens) */}
+              <Box sx={{ 
+                display: { xs: 'block', md: 'none' }, 
+                mb: 3 
+              }}>
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  sx={{ fontWeight: 'bold' }}
+                >
+                  AngaTech 1.0
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Public Platform
+                </Typography>
+              </Box>
+
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{ mb: 4 }}
+              >
+                Login
+              </Typography>
+
+              {error && (
+                <Typography 
+                  color="error" 
+                  variant="body2" 
+                  sx={{ mb: 2, p: 1, bgcolor: '#ffebee', borderRadius: 1 }}
+                >
+                  {error}
+                </Typography>
+              )}
+
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Email/Username
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="solomonkamau19@gmail.com"
+                  sx={{ mb: 3 }}
+                />
+
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Password
+                </Typography>
+                <TextField
+                  fullWidth
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={handleClickShowPassword}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ mb: 2 }}
+                />
+
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 3,
+                  }}
+                >
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        color="primary"
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        I accept the terms and conditions
+                      </Typography>
+                    }
+                  />
+
+                  <Link
+                    component={RouterLink}
+                    to="/forgot-password"
+                    color="primary"
+                    variant="body2"
                   >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                    Forgot Password?
+                  </Link>
+                </Box>
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={handleLogin}
+                  disabled={loading}
+                  sx={{ mb: 2, bgcolor: 'primary.main', color: 'white' }}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Login'
+                  )}
+                </Button>
+
+                <Button
+                  component={RouterLink}
+                  to="/register"
+                  fullWidth
+                  variant="outlined"
+                  sx={{ mb: 3, borderColor: 'primary.main', color: 'primary.main' }}
+                >
+                  Register
+                </Button>
+
+                <Typography
+                  variant="body2"
+                  align="center"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  or signup with
+                </Typography>
+
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: 2,
+                  }}
+                >
+                  {/* Social media icons */}
+                  <IconButton
+                    sx={{
+                      color: '#1877F2',
+                      '&:hover': { bgcolor: 'rgba(24, 119, 242, 0.1)' },
+                    }}
+                  >
+                    <img
+                      src="/assets/facebook-icon.svg"
+                      alt="Facebook"
+                      width={24}
+                      height={24}
+                    />
                   </IconButton>
-                </InputAdornment>
-              }
-            />
-          </FormControl>
-
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ 
-              mt: 3, 
-              mb: 2, 
-              py: 1.5,
-              background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-              '&:hover': {
-                background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
-              }
-            }}
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Sign In'}
-          </Button>
-
-          {/* Social Login Divider */}
-          <Divider sx={{ my: 2 }}>
-            <Chip label="OR" size="small" />
-          </Divider>
-
-          {/* Social Login Buttons */}
-          <Grid container spacing={2}>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GoogleIcon />}
-                onClick={() => handleSocialLogin('google')}
-                disabled={loading}
-                sx={{ 
-                  color: '#db4437', 
-                  borderColor: '#db4437',
-                  '&:hover': {
-                    bgcolor: 'rgba(219, 68, 55, 0.04)'
-                  }
-                }}
-              >
-                Google
-              </Button>
-            </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GitHubIcon />}
-                onClick={() => handleSocialLogin('github')}
-                disabled={loading}
-                sx={{ 
-                  color: '#333', 
-                  borderColor: '#333',
-                  '&:hover': {
-                    bgcolor: 'rgba(51, 51, 51, 0.04)'
-                  }
-                }}
-              >
-                GitHub
-              </Button>
-            </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<MicrosoftIcon />}
-                onClick={() => handleSocialLogin('microsoft')}
-                disabled={loading}
-                sx={{ 
-                  color: '#00a4ef', 
-                  borderColor: '#00a4ef',
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 164, 239, 0.04)'
-                  }
-                }}
-              >
-                Microsoft
-              </Button>
-            </Grid>
-          </Grid>
-
-          {/* Additional Links */}
-          <Grid container justifyContent="space-between" sx={{ mt: 2 }}>
-            <Grid item>
-              <Link 
-                href="#" 
-                variant="body2" 
-                onClick={() => navigate('/forgot-password')}
-              >
-                Forgot password?
-              </Link>
-            </Grid>
-            <Grid item>
-              <Link 
-                href="#" 
-                variant="body2" 
-                onClick={() => navigate('/register')}
-              >
-                {"Don't have an account? Sign Up"}
-              </Link>
-            </Grid>
-          </Grid>
-        </Box>
-      </Paper>
-    </Container>
+                  <IconButton
+                    sx={{
+                      color: '#E4405F',
+                      '&:hover': { bgcolor: 'rgba(228, 64, 95, 0.1)' },
+                    }}
+                  >
+                    <img
+                      src="/assets/instagram-icon.svg"
+                      alt="Instagram"
+                      width={24}
+                      height={24}
+                    />
+                  </IconButton>
+                  <IconButton
+                    sx={{
+                      color: '#0A66C2',
+                      '&:hover': { bgcolor: 'rgba(10, 102, 194, 0.1)' },
+                    }}
+                  >
+                    <img
+                      src="/assets/linkedin-icon.svg"
+                      alt="LinkedIn"
+                      width={24}
+                      height={24}
+                    />
+                  </IconButton>
+                  <IconButton
+                    sx={{
+                      color: '#1DA1F2',
+                      '&:hover': { bgcolor: 'rgba(29, 161, 242, 0.1)' },
+                    }}
+                  >
+                    <img
+                      src="/assets/twitter-icon.svg"
+                      alt="Twitter"
+                      width={24}
+                      height={24}
+                    />
+                  </IconButton>
+                </Box>
+              </Box>
+            </Box>
+          </Paper>
+        </Container>
+      </Box>
+    </ThemeProvider>
   );
 };
 
