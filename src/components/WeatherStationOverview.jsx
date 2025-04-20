@@ -1,12 +1,12 @@
 // src/components/WeatherStationOverview.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Grid, 
-  Paper, 
-  Typography, 
-  Card, 
-  CardContent, 
+import {
+  Box,
+  Grid,
+  Paper,
+  Typography,
+  Card,
+  CardContent,
   Divider,
   Chip,
   Avatar,
@@ -24,7 +24,7 @@ import {
   alpha,
   useTheme
 } from '@mui/material';
-import { 
+import {
   Thermostat as ThermostatIcon,
   WaterDrop as HumidityIcon,
   Compress as PressureIcon,
@@ -39,14 +39,14 @@ import {
   DataUsage as DataIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as RechartsTooltip, 
-  Legend, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
   ResponsiveContainer,
   AreaChart,
   Area,
@@ -77,9 +77,9 @@ const GlassPanel = styled(Box)(({ theme }) => ({
   },
 }));
 
-const WeatherStationOverview = ({ 
-  stations, 
-  loading, 
+const WeatherStationOverview = ({
+  stations,
+  loading,
   lastUpdated,
   selectedDevice = 'all',
   allDevices = [],
@@ -89,7 +89,7 @@ const WeatherStationOverview = ({
   const [localLoading, setLocalLoading] = useState(false);
   const [error, setError] = useState(null);
   const theme = useTheme();
-  
+
   // State for metric detail dialog
   const [detailDialog, setDetailDialog] = useState({
     open: false,
@@ -101,64 +101,64 @@ const WeatherStationOverview = ({
     color: 'primary',
     trend: null
   });
-  
+
   // Debug log the received stations data
   useEffect(() => {
     console.log("WeatherStationOverview received stations:", stations);
-    
+
     if (stations && stations.length > 0) {
       const sample = stations[0];
       console.log("Sample station data:", sample);
-      
+
       // Log the important parts of the data structure
       console.log("Received at:", sample.received_at);
       console.log("Device ID:", sample.end_device_ids?.device_id);
       console.log("Payload data:", sample.uplink_message?.decoded_payload);
     }
   }, [stations]);
-  
+
   // Format data for charts based on time range
   const formatDataForCharts = (stations) => {
     if (!stations || stations.length === 0) return [];
-    
+
     console.log("Formatting chart data from stations:", stations.length);
-    
+
     // Filter data based on time range
     const now = new Date();
     let filteredStations = [...stations];
-    
+
     if (timeRange === 'day') {
       // Last 24 hours
       const oneDayAgo = new Date(now);
       oneDayAgo.setHours(now.getHours() - 24);
-      filteredStations = stations.filter(station => 
+      filteredStations = stations.filter(station =>
         new Date(station.received_at) >= oneDayAgo
       );
     } else if (timeRange === 'week') {
       // Last 7 days
       const oneWeekAgo = new Date(now);
       oneWeekAgo.setDate(now.getDate() - 7);
-      filteredStations = stations.filter(station => 
+      filteredStations = stations.filter(station =>
         new Date(station.received_at) >= oneWeekAgo
       );
     } else if (timeRange === 'month') {
       // Last 30 days
       const oneMonthAgo = new Date(now);
       oneMonthAgo.setDate(now.getDate() - 30);
-      filteredStations = stations.filter(station => 
+      filteredStations = stations.filter(station =>
         new Date(station.received_at) >= oneMonthAgo
       );
     }
-    
+
     return filteredStations.map(station => {
       // Extract the timestamp and format it
       try {
         const date = new Date(station.received_at);
         const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
+
         // Extract weather metrics from the uplink_message.decoded_payload
         const payload = station.uplink_message?.decoded_payload || {};
-        
+
         return {
           time: formattedTime,
           date: date.toLocaleDateString(),
@@ -178,18 +178,18 @@ const WeatherStationOverview = ({
         return null;
       }
     })
-    .filter(item => item !== null) // Remove any items that failed to format
-    // Sort by timestamp
-    .sort((a, b) => a.timestamp - b.timestamp);
+      .filter(item => item !== null) // Remove any items that failed to format
+      // Sort by timestamp
+      .sort((a, b) => a.timestamp - b.timestamp);
   };
-  
+
   // Get the latest station data 
   const getLatestStationData = (stations) => {
     if (!stations || stations.length === 0) {
       console.warn("No stations data available");
       return null;
     }
-    
+
     // Sort by timestamp (descending) and get the most recent entry
     try {
       const sorted = [...stations].sort((a, b) => {
@@ -198,7 +198,7 @@ const WeatherStationOverview = ({
         const dateB = new Date(b.received_at);
         return dateB - dateA;
       });
-      
+
       console.log("Latest station data:", sorted[0]);
       return sorted[0];
     } catch (error) {
@@ -206,44 +206,44 @@ const WeatherStationOverview = ({
       return stations[0]; // Fallback to first item if sorting fails
     }
   };
-  
+
   // Format values with error handling
   const formatValue = (value, unit = '', decimals = 1) => {
     if (value === undefined || value === null) return 'N/A';
     if (typeof value === 'number') return `${value.toFixed(decimals)}${unit}`;
     return `${value}${unit}`;
   };
-  
+
   // Calculate trend (percentage change from previous day)
   const calculateTrend = (current, previous) => {
     if (current === null || previous === null || previous === 0) return undefined;
     return ((current - previous) / previous) * 100;
   };
-  
+
   // Get 24hr ago data point for trend calculation
   const get24HrAgoData = (stations, metric) => {
     if (!stations || stations.length < 2) return null;
-    
+
     // Get current time
     const now = new Date();
     const yesterday = new Date(now);
     yesterday.setHours(yesterday.getHours() - 24);
-    
+
     // Find closest data point to 24 hours ago
     const sorted = [...stations].sort((a, b) => {
       const timeA = new Date(a.received_at);
       const timeB = new Date(b.received_at);
-      
+
       const diffA = Math.abs(timeA - yesterday);
       const diffB = Math.abs(timeB - yesterday);
-      
+
       return diffA - diffB;
     });
-    
+
     // Return the payload value
     if (sorted.length > 0 && sorted[0].uplink_message?.decoded_payload) {
       const payload = sorted[0].uplink_message.decoded_payload;
-      
+
       switch (metric) {
         case 'temperature': return payload.air_temperature;
         case 'humidity': return payload.air_humidity;
@@ -255,10 +255,10 @@ const WeatherStationOverview = ({
         default: return null;
       }
     }
-    
+
     return null;
   };
-  
+
   // Refresh data
   const handleRefresh = () => {
     setLocalLoading(true);
@@ -268,7 +268,7 @@ const WeatherStationOverview = ({
       setLocalLoading(false);
     }, 1000);
   };
-  
+
   // Handle time range change
   const handleTimeRangeChange = (range) => {
     setTimeRange(range);
@@ -277,7 +277,7 @@ const WeatherStationOverview = ({
       setLocalLoading(false);
     }, 500);
   };
-  
+
   // Handle opening metric detail dialog
   const handleOpenMetricDetail = (metric, title, value, unit, icon, color, trend) => {
     setDetailDialog({
@@ -291,7 +291,7 @@ const WeatherStationOverview = ({
       trend
     });
   };
-  
+
   // Handle closing metric detail dialog
   const handleCloseMetricDetail = () => {
     setDetailDialog({
@@ -299,37 +299,37 @@ const WeatherStationOverview = ({
       open: false
     });
   };
-  
+
   // Get the formatted charts data
   const chartsData = formatDataForCharts(stations);
-  
+
   // Get the latest station data for current metrics
   const latestStation = getLatestStationData(stations);
   const latestPayload = latestStation?.uplink_message?.decoded_payload || {};
-  
+
   // Get the current device name
   const getCurrentDeviceName = () => {
     if (selectedDevice === 'all') return 'All Devices';
     const device = allDevices.find(d => d.id === selectedDevice);
     return device ? (device.name || device.id) : selectedDevice;
   };
-  
+
   // Get the device status
   const getDeviceStatus = (timestamp) => {
     if (!timestamp) return { label: 'Unknown', color: 'default' };
-    
+
     const now = new Date();
     const lastActivity = new Date(timestamp);
     const diffHours = (now - lastActivity) / (1000 * 60 * 60);
-    
+
     if (diffHours < 1) return { label: 'Online', color: 'success' };
     if (diffHours < 24) return { label: 'Idle', color: 'warning' };
     return { label: 'Offline', color: 'error' };
   };
-  
+
   // Get status for device
   const deviceStatus = latestStation ? getDeviceStatus(latestStation.received_at) : { label: 'Unknown', color: 'default' };
-  
+
   // If there's no data or loading
   if (loading || localLoading) {
     return (
@@ -341,7 +341,7 @@ const WeatherStationOverview = ({
       </Box>
     );
   }
-  
+
   // If there's an error
   if (error) {
     return (
@@ -350,14 +350,14 @@ const WeatherStationOverview = ({
       </Alert>
     );
   }
-  
+
   // If there's no station data
   if (!latestStation) {
     return (
-      <Paper 
-        sx={{ 
-          p: 4, 
-          textAlign: 'center', 
+      <Paper
+        sx={{
+          p: 4,
+          textAlign: 'center',
           borderRadius: 2,
           background: `linear-gradient(45deg, ${alpha(theme.palette.warning.light, 0.1)}, ${alpha(theme.palette.warning.light, 0.05)})`,
           border: `1px solid ${alpha(theme.palette.warning.main, 0.1)}`
@@ -370,9 +370,9 @@ const WeatherStationOverview = ({
         <Typography variant="body1" color="text.secondary" paragraph>
           No weather station data was found in the database. Please make sure your IoT devices are properly connected and sending data.
         </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<RefreshIcon />} 
+        <Button
+          variant="contained"
+          startIcon={<RefreshIcon />}
           onClick={handleRefresh}
           disabled={localLoading}
         >
@@ -381,7 +381,7 @@ const WeatherStationOverview = ({
       </Paper>
     );
   }
-  
+
   // Get previous data for trend calculation
   const prevTemp = get24HrAgoData(stations, 'temperature');
   const prevHumidity = get24HrAgoData(stations, 'humidity');
@@ -395,14 +395,14 @@ const WeatherStationOverview = ({
   const tempTrend = calculateTrend(latestPayload.air_temperature, prevTemp);
   const humidityTrend = calculateTrend(latestPayload.air_humidity, prevHumidity);
   const pressureTrend = calculateTrend(
-    latestPayload.barometric_pressure ? latestPayload.barometric_pressure / 100 : null, 
+    latestPayload.barometric_pressure ? latestPayload.barometric_pressure / 100 : null,
     prevPressure
   );
   const windSpeedTrend = calculateTrend(latestPayload.wind_speed, prevWindSpeed);
   const lightTrend = calculateTrend(latestPayload.light_intensity, prevLight);
   const rainTrend = calculateTrend(latestPayload.rain_accumulation, prevRain);
   const uvTrend = calculateTrend(latestPayload.uv_index, prevUV);
-  
+
   return (
     <Box>
       {/* Header with weather overview */}
@@ -410,8 +410,8 @@ const WeatherStationOverview = ({
         <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={6}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box 
-                sx={{ 
+              <Box
+                sx={{
                   p: 1.5,
                   borderRadius: '10%',
                   background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
@@ -426,9 +426,9 @@ const WeatherStationOverview = ({
                   <Typography variant="h4" gutterBottom fontWeight="medium">
                     {getCurrentDeviceName()}
                   </Typography>
-                  <Chip 
-                    label={deviceStatus.label} 
-                    size="small" 
+                  <Chip
+                    label={deviceStatus.label}
+                    size="small"
                     color={deviceStatus.color}
                     sx={{ ml: 1 }}
                   />
@@ -466,21 +466,21 @@ const WeatherStationOverview = ({
                   </Select>
                 </FormControl>
               )}
-              
+
               <ButtonGroup size="small" aria-label="time range filter">
-                <Button 
-                  variant={timeRange === 'day' ? 'contained' : 'outlined'} 
+                <Button
+                  variant={timeRange === 'day' ? 'contained' : 'outlined'}
                   onClick={() => handleTimeRangeChange('day')}
                 >
                   Day
                 </Button>
-                <Button 
+                <Button
                   variant={timeRange === 'week' ? 'contained' : 'outlined'}
                   onClick={() => handleTimeRangeChange('week')}
                 >
                   Week
                 </Button>
-                <Button 
+                <Button
                   variant={timeRange === 'month' ? 'contained' : 'outlined'}
                   onClick={() => handleTimeRangeChange('month')}
                 >
@@ -496,15 +496,16 @@ const WeatherStationOverview = ({
           </Grid>
         </Grid>
       </GlassPanel>
-      
+
       {/* Current weather metrics - now with equal height cards and click functionality */}
-      
+
+      {/* Current weather metrics */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" fontWeight="medium" sx={{ mb: 5 }}>Current Conditions</Typography>
-        <Grid container spacing={20}>
+        <Typography variant="h6" fontWeight="medium" sx={{ mb: 2 }}>Current Conditions</Typography>
+        <Grid container spacing={2} sx={{ flexGrow: 1 }}>
           {/* Temperature */}
-          <Grid item xs={12} sm={6} md={3}>
-            <WeatherMetricCard 
+          <Grid item xs={6} sm={4} md={2}>
+            <WeatherMetricCard
               title="Temperature"
               value={formatValue(latestPayload.air_temperature, '')}
               unit="°C"
@@ -522,10 +523,10 @@ const WeatherStationOverview = ({
               )}
             />
           </Grid>
-          
+
           {/* Humidity */}
-          <Grid item xs={12} sm={6} md={3}>
-            <WeatherMetricCard 
+          <Grid item xs={6} sm={4} md={2}>
+            <WeatherMetricCard
               title="Humidity"
               value={formatValue(latestPayload.air_humidity, '', 0)}
               unit="%"
@@ -543,10 +544,10 @@ const WeatherStationOverview = ({
               )}
             />
           </Grid>
-          
+
           {/* Pressure */}
-          <Grid item xs={12} sm={6} md={3}>
-            <WeatherMetricCard 
+          <Grid item xs={6} sm={4} md={2}>
+            <WeatherMetricCard
               title="Pressure"
               value={formatValue(latestPayload.barometric_pressure ? latestPayload.barometric_pressure / 100 : null, '')}
               unit="hPa"
@@ -564,10 +565,10 @@ const WeatherStationOverview = ({
               )}
             />
           </Grid>
-          
+
           {/* Wind */}
-          <Grid item xs={12} sm={6} md={3}>
-            <WeatherMetricCard 
+          <Grid item xs={6} sm={4} md={2}>
+            <WeatherMetricCard
               title="Wind"
               value={formatValue(latestPayload.wind_speed, '')}
               unit="m/s"
@@ -587,15 +588,10 @@ const WeatherStationOverview = ({
               )}
             />
           </Grid>
-        </Grid>
-      </Box>
 
-      {/* Secondary weather metrics */}
-      <Box sx={{ mb: 4 }}>
-        <Grid container spacing={3}>
           {/* Light Intensity */}
-          <Grid item xs={12} sm={6} md={4}>
-            <WeatherMetricCard 
+          <Grid item xs={6} sm={4} md={2}>
+            <WeatherMetricCard
               title="Light Intensity"
               value={formatValue(latestPayload.light_intensity, '', 0)}
               unit="lux"
@@ -613,10 +609,10 @@ const WeatherStationOverview = ({
               )}
             />
           </Grid>
-          
+
           {/* Rain */}
-          <Grid item xs={12} sm={6} md={4}>
-            <WeatherMetricCard 
+          <Grid item xs={6} sm={4} md={2}>
+            <WeatherMetricCard
               title="Rain"
               value={formatValue(latestPayload.rain_accumulation, '', 2)}
               unit="mm"
@@ -636,10 +632,10 @@ const WeatherStationOverview = ({
               )}
             />
           </Grid>
-          
+
           {/* UV Index */}
-          <Grid item xs={12} sm={6} md={4}>
-            <WeatherMetricCard 
+          <Grid item xs={6} sm={4} md={2}>
+            <WeatherMetricCard
               title="UV Index"
               value={formatValue(latestPayload.uv_index, '', 0)}
               unit=""
@@ -666,14 +662,14 @@ const WeatherStationOverview = ({
           <Typography variant="h6" gutterBottom fontWeight="medium" sx={{ mb: 3 }}>
             Weather Trends
           </Typography>
-          
+
           {/* Temperature & Humidity Chart */}
-          <Paper 
-            sx={{ 
-              p: 3, 
+          <Paper
+            sx={{
+              p: 3,
               mb: 3,
               borderRadius: 2,
-              boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)' 
+              boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)'
             }}
           >
             <Typography variant="subtitle1" gutterBottom fontWeight="medium">
@@ -691,41 +687,41 @@ const WeatherStationOverview = ({
                   }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.secondary, 0.1)} />
-                  <XAxis 
-                    dataKey="time" 
+                  <XAxis
+                    dataKey="time"
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
                   />
-                  <YAxis 
-                    yAxisId="left" 
-                    tickCount={6} 
+                  <YAxis
+                    yAxisId="left"
+                    tickCount={6}
                     domain={['auto', 'auto']}
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
-                    label={{ 
-                      value: 'Temperature (°C)', 
-                      angle: -90, 
+                    label={{
+                      value: 'Temperature (°C)',
+                      angle: -90,
                       position: 'insideLeft',
                       style: { textAnchor: 'middle', fontSize: 12, fill: theme.palette.primary.main, fontWeight: 500 }
                     }}
                   />
-                  <YAxis 
-                    yAxisId="right" 
-                    orientation="right" 
-                    domain={[0, 100]} 
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    domain={[0, 100]}
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
-                    label={{ 
-                      value: 'Humidity (%)', 
-                      angle: 90, 
+                    label={{
+                      value: 'Humidity (%)',
+                      angle: 90,
                       position: 'insideRight',
                       style: { textAnchor: 'middle', fontSize: 12, fill: theme.palette.info.main, fontWeight: 500 }
                     }}
                   />
                   <RechartsTooltip
-                    contentStyle={{ 
-                      background: alpha(theme.palette.background.paper, 0.9), 
-                      borderRadius: '8px', 
+                    contentStyle={{
+                      background: alpha(theme.palette.background.paper, 0.9),
+                      borderRadius: '8px',
                       boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
                       border: 'none'
                     }}
@@ -762,14 +758,14 @@ const WeatherStationOverview = ({
               </ResponsiveContainer>
             </Box>
           </Paper>
-          
+
           {/* Barometric Pressure Chart */}
-          <Paper 
-            sx={{ 
-              p: 3, 
+          <Paper
+            sx={{
+              p: 3,
               mb: 3,
               borderRadius: 2,
-              boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)' 
+              boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)'
             }}
           >
             <Typography variant="subtitle1" gutterBottom fontWeight="medium">
@@ -787,26 +783,26 @@ const WeatherStationOverview = ({
                   }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.secondary, 0.1)} />
-                  <XAxis 
-                    dataKey="time" 
+                  <XAxis
+                    dataKey="time"
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
                   />
-                  <YAxis 
+                  <YAxis
                     domain={['auto', 'auto']}
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
-                    label={{ 
-                      value: 'Pressure (hPa)', 
-                      angle: -90, 
+                    label={{
+                      value: 'Pressure (hPa)',
+                      angle: -90,
                       position: 'insideLeft',
                       style: { textAnchor: 'middle', fontSize: 12, fill: theme.palette.warning.main, fontWeight: 500 }
                     }}
                   />
                   <RechartsTooltip
-                    contentStyle={{ 
-                      background: alpha(theme.palette.background.paper, 0.9), 
-                      borderRadius: '8px', 
+                    contentStyle={{
+                      background: alpha(theme.palette.background.paper, 0.9),
+                      borderRadius: '8px',
                       boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
                       border: 'none'
                     }}
@@ -827,8 +823,8 @@ const WeatherStationOverview = ({
                     y={prevPressure || 1013}
                     stroke={alpha(theme.palette.warning.main, 0.5)}
                     strokeDasharray="3 3"
-                    label={{ 
-                      value: 'Previous day', 
+                    label={{
+                      value: 'Previous day',
                       position: 'insideBottomLeft',
                       fill: alpha(theme.palette.text.secondary, 0.7),
                       fontSize: 10
@@ -838,13 +834,13 @@ const WeatherStationOverview = ({
               </ResponsiveContainer>
             </Box>
           </Paper>
-          
+
           {/* Wind & Rain Chart */}
-          <Paper 
-            sx={{ 
+          <Paper
+            sx={{
               p: 3,
               borderRadius: 2,
-              boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)' 
+              boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)'
             }}
           >
             <Typography variant="subtitle1" gutterBottom fontWeight="medium">
@@ -862,40 +858,40 @@ const WeatherStationOverview = ({
                   }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.secondary, 0.1)} />
-                  <XAxis 
-                    dataKey="time" 
+                  <XAxis
+                    dataKey="time"
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
                   />
-                  <YAxis 
-                    yAxisId="left" 
+                  <YAxis
+                    yAxisId="left"
                     domain={[0, 'auto']}
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
-                    label={{ 
-                      value: 'Wind (m/s)', 
-                      angle: -90, 
+                    label={{
+                      value: 'Wind (m/s)',
+                      angle: -90,
                       position: 'insideLeft',
                       style: { textAnchor: 'middle', fontSize: 12, fill: theme.palette.success.main, fontWeight: 500 }
                     }}
                   />
-                  <YAxis 
-                    yAxisId="right" 
-                    orientation="right" 
-                    domain={[0, 'auto']} 
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    domain={[0, 'auto']}
                     tick={{ fontSize: 12 }}
                     stroke={alpha(theme.palette.text.secondary, 0.4)}
-                    label={{ 
-                      value: 'Rain (mm)', 
-                      angle: 90, 
+                    label={{
+                      value: 'Rain (mm)',
+                      angle: 90,
                       position: 'insideRight',
                       style: { textAnchor: 'middle', fontSize: 12, fill: theme.palette.info.main, fontWeight: 500 }
                     }}
                   />
                   <RechartsTooltip
-                    contentStyle={{ 
-                      background: alpha(theme.palette.background.paper, 0.9), 
-                      borderRadius: '8px', 
+                    contentStyle={{
+                      background: alpha(theme.palette.background.paper, 0.9),
+                      borderRadius: '8px',
                       boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
                       border: 'none'
                     }}
@@ -943,10 +939,10 @@ const WeatherStationOverview = ({
           </Paper>
         </Box>
       ) : (
-        <Paper 
-          sx={{ 
-            p: 4, 
-            textAlign: 'center', 
+        <Paper
+          sx={{
+            p: 4,
+            textAlign: 'center',
             borderRadius: 2,
             mb: 4,
             background: `linear-gradient(45deg, ${alpha(theme.palette.warning.light, 0.1)}, ${alpha(theme.palette.warning.light, 0.05)})`,
@@ -962,31 +958,31 @@ const WeatherStationOverview = ({
           </Typography>
         </Paper>
       )}
-      
+
       {/* Device Information */}
       <Box>
         <Typography variant="h6" gutterBottom fontWeight="medium" sx={{ mb: 3 }}>
           Device Information
         </Typography>
-        <Paper 
-          sx={{ 
+        <Paper
+          sx={{
             p: 3,
             borderRadius: 2,
-            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)' 
+            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)'
           }}
         >
           {latestStation && (
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <Box 
-                  sx={{ 
+                <Box
+                  sx={{
                     display: 'flex',
                     alignItems: 'center',
                     mb: 2
                   }}
                 >
-                  <Avatar 
-                    sx={{ 
+                  <Avatar
+                    sx={{
                       bgcolor: alpha(theme.palette.primary.main, 0.1),
                       color: theme.palette.primary.main,
                       mr: 1.5,
@@ -1000,7 +996,7 @@ const WeatherStationOverview = ({
                     Station Details
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ ml: 0.5 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Device ID
@@ -1008,14 +1004,14 @@ const WeatherStationOverview = ({
                   <Typography variant="body1" gutterBottom fontWeight="medium">
                     {latestStation.end_device_ids?.device_id || 'N/A'}
                   </Typography>
-                  
+
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
                     Device Address
                   </Typography>
                   <Typography variant="body1" gutterBottom>
                     {latestStation.end_device_ids?.dev_addr || 'N/A'}
                   </Typography>
-                  
+
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
                     Application ID
                   </Typography>
@@ -1024,17 +1020,17 @@ const WeatherStationOverview = ({
                   </Typography>
                 </Box>
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
-                <Box 
-                  sx={{ 
+                <Box
+                  sx={{
                     display: 'flex',
                     alignItems: 'center',
                     mb: 2
                   }}
                 >
-                  <Avatar 
-                    sx={{ 
+                  <Avatar
+                    sx={{
                       bgcolor: alpha(theme.palette.info.main, 0.1),
                       color: theme.palette.info.main,
                       mr: 1.5,
@@ -1048,7 +1044,7 @@ const WeatherStationOverview = ({
                     Telemetry Data
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ ml: 0.5 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Number of Readings
@@ -1056,32 +1052,32 @@ const WeatherStationOverview = ({
                   <Typography variant="body1" gutterBottom>
                     {stations?.length || 0}
                   </Typography>
-                  
+
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
                     Signal Quality
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Chip 
-                      label={`RSSI: ${latestStation.uplink_message?.rx_metadata?.[0]?.rssi || 'N/A'} dBm`} 
-                      size="small" 
-                      color="primary" 
+                    <Chip
+                      label={`RSSI: ${latestStation.uplink_message?.rx_metadata?.[0]?.rssi || 'N/A'} dBm`}
+                      size="small"
+                      color="primary"
                       variant="outlined"
                       sx={{ mr: 1 }}
                     />
-                    <Chip 
-                      label={`SNR: ${latestStation.uplink_message?.rx_metadata?.[0]?.snr || 'N/A'} dB`} 
-                      size="small" 
-                      color="info" 
+                    <Chip
+                      label={`SNR: ${latestStation.uplink_message?.rx_metadata?.[0]?.snr || 'N/A'} dB`}
+                      size="small"
+                      color="info"
                       variant="outlined"
                     />
                   </Box>
-                  
+
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
                     First Reading
                   </Typography>
                   <Typography variant="body1">
-                    {stations && stations.length > 0 
-                      ? new Date(stations[stations.length - 1].received_at).toLocaleString() 
+                    {stations && stations.length > 0
+                      ? new Date(stations[stations.length - 1].received_at).toLocaleString()
                       : 'N/A'}
                   </Typography>
                 </Box>
@@ -1090,9 +1086,9 @@ const WeatherStationOverview = ({
           )}
         </Paper>
       </Box>
-      
+
       {/* Metric Detail Dialog */}
-      <WeatherMetricDetail 
+      <WeatherMetricDetail
         open={detailDialog.open}
         onClose={handleCloseMetricDetail}
         metric={detailDialog.metric}
