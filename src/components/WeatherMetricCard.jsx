@@ -32,36 +32,36 @@ const WeatherMetricCard = ({
       sx={{
         position: 'relative',
         width: '100%',
-        borderRadius: '12px', // Specific border radius to match the image
-        boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+        borderRadius: '16px', // Slightly larger border radius
+        boxShadow: '0 4px 15px rgba(0,0,0,0.08)', // Enhanced shadow
         background: 'white',
         border: `1px solid ${alpha(theme.palette[color].main, 0.1)}`,
         display: 'flex',
         flexDirection: 'column',
-        padding: 2,
+        padding: 3, // Increased padding
         cursor: 'pointer',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        transition: 'transform 0.3s, box-shadow 0.3s',
         '&:hover': {
-          transform: 'scale(1.02)',
-          boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+          transform: 'translateY(-5px)',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.12)'
         }
       }}
     >
-      {/* Top section with title and icon */}
+      {/* Title section */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        mb: 1
+        mb: 2 // Increased margin bottom
       }}>
         <Typography 
-          variant="caption" 
+          variant="subtitle1" 
           color="text.secondary"
           sx={{ 
             textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            fontWeight: 600,
-            fontSize: '0.675rem'
+            letterSpacing: '1px',
+            fontWeight: 700,
+            fontSize: '0.8rem'
           }}
         >
           {title}
@@ -70,7 +70,8 @@ const WeatherMetricCard = ({
         {icon && (
           <Box 
             sx={{ 
-              color: alpha(theme.palette[color].main, 0.7)
+              color: alpha(theme.palette[color].main, 0.7),
+              fontSize: '1.5rem'
             }}
           >
             {icon}
@@ -83,25 +84,30 @@ const WeatherMetricCard = ({
         display: 'flex', 
         alignItems: 'baseline', 
         justifyContent: 'center',
-        mb: 1
+        mb: 2, // Consistent margin
+        flexGrow: 1
       }}>
         <Typography 
-          variant="h4" 
+          variant="h3" 
           component="div" 
           sx={{ 
-            fontWeight: 600, 
+            fontWeight: 700, 
             lineHeight: 1,
             color: 'text.primary',
             mr: unit ? 0.5 : 0,
-            fontSize: '2rem'
+            fontSize: '2.5rem' // Larger font size
           }}
         >
           {value}
         </Typography>
         {unit && (
           <Typography 
-            variant="body2" 
+            variant="h5" 
             color="text.secondary"
+            sx={{
+              fontWeight: 500,
+              fontSize: '1.25rem' // Larger unit size
+            }}
           >
             {unit}
           </Typography>
@@ -120,16 +126,16 @@ const WeatherMetricCard = ({
         >
           <TrendIcon 
             sx={{ 
-              fontSize: 14, 
+              fontSize: 18, 
               mr: 0.5 
             }} 
           />
           <Typography 
-            variant="caption" 
+            variant="body2" 
             sx={{ 
               color: trendColor,
-              fontWeight: 500,
-              fontSize: '0.675rem'
+              fontWeight: 600,
+              fontSize: '0.75rem'
             }}
           >
             {Math.abs(trend).toFixed(1)}% from yesterday
