@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { useAuth } from '../contexts/AuthContext'; // Import the useAuth hook
 
 // Create a theme with green as primary color
 const theme = createTheme({
@@ -59,6 +60,7 @@ const theme = createTheme({
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth(); // Use the login function from context
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,32 +93,25 @@ const Login = () => {
     setError('');
     setLoading(true);
     
-    // Simulate authentication - replace with your actual auth logic
-    setTimeout(() => {
-      try {
-        // Store auth state in localStorage so it persists across page refreshes
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('user', JSON.stringify({ 
-          email, 
-          name: email.split('@')[0],
-          role: 'user'
-        }));
-        
-        // First try React Router navigation
-        navigate('/dashboard');
-        
-        // If that doesn't work, try a direct location change with a query param
-        // to prevent redirect loops
-        setTimeout(() => {
-          window.location.href = '/dashboard?auth=true';
-        }, 500);
-        
-      } catch (err) {
-        console.error('Authentication error:', err);
-        setError('Login failed. Please try again.');
-        setLoading(false);
-      }
-    }, 1000);
+    // Use the login function from AuthContext
+    try {
+      // Create a user object to be stored
+      const user = { 
+        email, 
+        name: email.split('@')[0],
+        role: 'user'
+      };
+      
+      // Call the login function from context
+      login(user);
+      
+      // Navigate to dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Authentication error:', err);
+      setError('Login failed. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (

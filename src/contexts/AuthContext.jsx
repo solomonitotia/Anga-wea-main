@@ -1,11 +1,5 @@
 // src/contexts/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  onAuthStateChanged, 
-  signOut as firebaseSignOut
-} from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
 
 // Create context
 const AuthContext = createContext();
@@ -21,53 +15,48 @@ export const AuthProvider = ({ children }) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Sign out function
-  const signOut = async () => {
-    return firebaseSignOut(auth);
-  };
-
-  // Get additional user data from Firestore
-  const getUserData = async (uid) => {
-    try {
-      const userRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        return userSnap.data();
-      } else {
-        console.log('No user data found in Firestore');
-        return null;
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      return null;
-    }
-  };
-  
-  // Effect for auth state changes
+  // Check for authentication on app load
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      
-      if (user) {
-        const userDataResult = await getUserData(user.uid);
-        setUserData(userDataResult);
-      } else {
-        setUserData(null);
+    // Check if user is stored in localStorage
+    const isAuth = localStorage.getItem('isAuthenticated');
+    const userStr = localStorage.getItem('user');
+    
+    if (isAuth === 'true' && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        setUserData(user); // For simplicity, we'll use the same data for userData
+      } catch (e) {
+        console.error('Error parsing user data:', e);
       }
-      
-      setLoading(false);
-    });
-
-    return unsubscribe;
+    }
+    
+    setLoading(false);
   }, []);
 
-  // Context value
+  // Login function
+  const login = (userData) => {
+    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('user', JSON.stringify(userData));
+    setCurrentUser(userData);
+    setUserData(userData);
+  };
+
+  // Sign out function
+  const signOut = () => {
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('user');
+    setCurrentUser(null);
+    setUserData(null);
+  };
+
+  // Auth context value
   const value = {
     currentUser,
     userData,
-    loading,
-    signOut
+    login,
+    signOut,
+    loading
   };
 
   return (

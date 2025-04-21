@@ -1,5 +1,5 @@
 // src/components/DeviceManagement.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -54,6 +54,7 @@ import {
   LocationOn as LocationOnIcon
 } from '@mui/icons-material';
 import weatherService from '../firebase/weatherService';
+import deviceStatusUtils from '../utils/deviceStatus';
 
 const DeviceManagement = ({ devices }) => {
   const theme = useTheme();
@@ -73,6 +74,7 @@ const DeviceManagement = ({ devices }) => {
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'online', 'offline'
   const [deviceMenuAnchorEl, setDeviceMenuAnchorEl] = useState(null);
   const [selectedDeviceForMenu, setSelectedDeviceForMenu] = useState(null);
+  const [localDevices, setLocalDevices] = useState([]);
 
   // State for new device
   const [newDeviceData, setNewDeviceData] = useState({
@@ -85,6 +87,47 @@ const DeviceManagement = ({ devices }) => {
     latitude: '',
     longitude: ''
   });
+
+  // Initialize local devices when devices prop changes
+  useEffect(() => {
+    if (devices && devices.length > 0) {
+      setLocalDevices(devices);
+    }
+  }, [devices]);
+
+  // Define a refresh data function that can be called both manually and on interval
+  const refreshDeviceData = useCallback(() => {
+    setLoading(true);
+
+    // In a real application, you would fetch fresh data here
+    // For now, we'll just simulate a refresh
+    setTimeout(() => {
+      // Create a copy to trigger re-render
+      if (localDevices && localDevices.length > 0) {
+        setLocalDevices([...localDevices]);
+      }
+
+      setLoading(false);
+      setSnackbar({
+        open: true,
+        message: 'Device data refreshed',
+        severity: 'success'
+      });
+    }, 800);
+  }, [localDevices]);
+
+  // Set up automatic refresh interval
+  useEffect(() => {
+    // Refresh every 30 seconds
+    const intervalId = setInterval(() => {
+      refreshDeviceData();
+    }, 30000);
+
+    // Clean up interval on component unmount
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [refreshDeviceData]);
 
   // Handle new device input change
   const handleNewDeviceChange = (e) => {
@@ -166,16 +209,16 @@ const DeviceManagement = ({ devices }) => {
   // Extract location information from device data
   const getDeviceLocation = (device) => {
     // Check various possible locations in the device data
-    const latitude = 
-      device.latitude || 
-      device.location?.latitude || 
+    const latitude =
+      device.latitude ||
+      device.location?.latitude ||
       device.uplink_message?.decoded_payload?.latitude;
-    
-    const longitude = 
-      device.longitude || 
-      device.location?.longitude || 
+
+    const longitude =
+      device.longitude ||
+      device.location?.longitude ||
       device.uplink_message?.decoded_payload?.longitude;
-    
+
     // Return formatted location if both lat and long exist
     if (latitude && longitude) {
       return {
@@ -183,75 +226,48 @@ const DeviceManagement = ({ devices }) => {
         longitude: Number(longitude).toFixed(4)
       };
     }
-    
+
     return null;
   };
 
   // Format timestamp to readable date/time
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'N/A';
-
-    const date = new Date(timestamp);
-    return date.toLocaleString();
-  };
-
-  // Helper function to format time ago
-  const formatTimeAgo = (date) => {
-    const now = new Date();
-    const diffMinutes = Math.round((now - date) / (1000 * 60));
-    
-    if (diffMinutes < 1) return 'just now';
-    if (diffMinutes < 60) return `${diffMinutes} min ago`;
-    
-    const diffHours = Math.floor(diffMinutes / 60);
-    const remainingMinutes = diffMinutes % 60;
-    
-    if (diffHours < 24) {
-      return remainingMinutes > 0 
-        ? `${diffHours}h ${remainingMinutes}m ago`
-        : `${diffHours}h ago`;
-    }
-    
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-  };
-
-  // Calculate device status based on last activity
-// Calculate device status based on last activity
-const getDeviceStatus = (timestamp) => {
-  if (!timestamp) return { label: 'Unknown', color: 'default' };
-
-  const now = new Date();
-  const lastActivity = new Date(timestamp);
-  
-  // Calculate time difference in minutes
-  const diffMinutes = (now - lastActivity) / (1000 * 60);
-
-  // Consider device online if data was sent within the last 60 minutes
-  // This provides more granular control over online/offline status
-  if (diffMinutes < 60) {
-    return { 
-      label: 'Online', 
-      color: 'success',
-      details: `Last active ${formatTimeAgo(lastActivity)}`
-    };
-  } 
-  
-  // If no data for more than 60 minutes, mark as offline
-  return { 
-    label: 'Offline', 
-    color: 'error',
-    details: `Last active ${formatTimeAgo(lastActivity)}`
-  };
+// In formatTimestamp function of DeviceManagement.jsx
+const formatTimestamp = (device) => {
+  // Use the utility function to get properly formatted timestamp
+  return deviceStatusUtils.getFormattedTimestamp(device);
 };
+
+
+  // Use the centralized utility for device status
+  const getDeviceStatus = (device) => {
+    // Pass the entire device object rather than just the timestamp
+    return deviceStatusUtils.getDeviceStatus(device, { 
+      // For demo, you can force online - remove in production
+      // forceOnline: true
+    });
+  };
+
+  // Get signal strength icon based on RSSI value
+  const getSignalIcon = (rssi) => {
+    if (!rssi) return <SignalLowIcon color="error" />;
+
+    if (rssi > -80) return <SignalHighIcon color="success" />;
+    if (rssi > -100) return <SignalMediumIcon color="warning" />;
+    return <SignalLowIcon color="error" />;
+  };
+
+  // Handle refresh
+  const handleRefresh = () => {
+    refreshDeviceData();
+  };
 
   // Deduplicate devices based on device_id
   const getUniqueDevices = () => {
     const uniqueDevices = new Map();
 
-    if (!devices || devices.length === 0) return [];
+    if (!localDevices || localDevices.length === 0) return [];
 
-    devices.forEach(device => {
+    localDevices.forEach(device => {
       const deviceId = device.end_device_ids?.device_id;
       if (deviceId && !uniqueDevices.has(deviceId)) {
         uniqueDevices.set(deviceId, device);
@@ -263,9 +279,9 @@ const getDeviceStatus = (timestamp) => {
 
   // Get last reading data for a specific device
   const getLatestReading = (deviceId) => {
-    if (!devices || devices.length === 0) return null;
+    if (!localDevices || localDevices.length === 0) return null;
 
-    const deviceData = devices.filter(d => d.end_device_ids?.device_id === deviceId);
+    const deviceData = localDevices.filter(d => d.end_device_ids?.device_id === deviceId);
 
     if (deviceData.length === 0) return null;
 
@@ -307,6 +323,9 @@ const getDeviceStatus = (timestamp) => {
         message: 'Device added successfully',
         severity: 'success'
       });
+
+      // Refresh the device list
+      refreshDeviceData();
 
       // Reset the form
       setNewDeviceData({
@@ -368,6 +387,9 @@ const getDeviceStatus = (timestamp) => {
           message: 'Device deleted successfully',
           severity: 'success'
         });
+
+        // Refresh the device list
+        refreshDeviceData();
       } else {
         throw new Error('No device ID selected');
       }
@@ -384,15 +406,6 @@ const getDeviceStatus = (timestamp) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Get signal strength icon based on RSSI value
-  const getSignalIcon = (rssi) => {
-    if (!rssi) return <SignalLowIcon color="error" />;
-
-    if (rssi > -80) return <SignalHighIcon color="success" />;
-    if (rssi > -100) return <SignalMediumIcon color="warning" />;
-    return <SignalLowIcon color="error" />;
   };
 
   // Render status filter chip
@@ -433,7 +446,7 @@ const getDeviceStatus = (timestamp) => {
     // Apply status filter if not 'all'
     if (statusFilter !== 'all') {
       const status = getDeviceStatus(device.received_at);
-      return matchesSearch && status.label.toLowerCase() === statusFilter;
+      return matchesSearch && status.label.toLowerCase() === statusFilter.toLowerCase();
     }
 
     return matchesSearch;
@@ -602,6 +615,11 @@ const getDeviceStatus = (timestamp) => {
                     </Box>
                   </MenuItem>
                 </Menu>
+                <Tooltip title="Refresh devices">
+                  <IconButton onClick={handleRefresh} size="small" sx={{ ml: 1 }}>
+                    {loading ? <CircularProgress size={20} /> : <RefreshIcon />}
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
           </Grid>
@@ -625,7 +643,7 @@ const getDeviceStatus = (timestamp) => {
                 const deviceLocation = getDeviceLocation(device);
 
                 // Get reading count for this device
-                const readingCount = devices.filter(d =>
+                const readingCount = localDevices.filter(d =>
                   d.end_device_ids?.device_id === deviceId
                 ).length;
 
@@ -691,7 +709,7 @@ const getDeviceStatus = (timestamp) => {
                             <Typography variant="body2" color="text.secondary">
                               Device Address
                             </Typography>
-                            <Typography variant="body2" gutterBottom fontWeight="medium">
+                            <Typography variant="body1" gutterBottom fontWeight="medium">
                               {devAddr}
                             </Typography>
                           </Grid>
@@ -719,7 +737,7 @@ const getDeviceStatus = (timestamp) => {
                               Location
                             </Typography>
                             <Typography variant="body2" fontWeight="medium">
-                              {deviceLocation 
+                              {deviceLocation
                                 ? `${deviceLocation.latitude}°N, ${deviceLocation.longitude}°E`
                                 : 'N/A'}
                             </Typography>
@@ -812,7 +830,7 @@ const getDeviceStatus = (timestamp) => {
                   const deviceLocation = getDeviceLocation(device);
 
                   // Get reading count for this device
-                  const readingCount = devices.filter(d =>
+                  const readingCount = localDevices.filter(d =>
                     d.end_device_ids?.device_id === deviceId
                   ).length;
 
@@ -843,7 +861,7 @@ const getDeviceStatus = (timestamp) => {
                       </TableCell>
                       <TableCell>{devAddr}</TableCell>
                       <TableCell>
-                        {deviceLocation 
+                        {deviceLocation
                           ? `${deviceLocation.latitude}°N, ${deviceLocation.longitude}°E`
                           : 'N/A'}
                       </TableCell>

@@ -57,6 +57,9 @@ import {
 import WeatherMetricCard from './WeatherMetricCard';
 import WeatherMetricDetail from './WeatherMetricDetail';
 
+// Import centralized device status utility
+import deviceStatusUtils from '../utils/deviceStatus';
+
 // Custom styled components
 const GlassPanel = styled(Box)(({ theme }) => ({
   backdropFilter: 'blur(10px)',
@@ -89,6 +92,7 @@ const WeatherStationOverview = ({
   const [localLoading, setLocalLoading] = useState(false);
   const [error, setError] = useState(null);
   const theme = useTheme();
+  const [localStations, setLocalStations] = useState([]);
 
   // State for metric detail dialog
   const [detailDialog, setDetailDialog] = useState({
@@ -101,6 +105,26 @@ const WeatherStationOverview = ({
     color: 'primary',
     trend: null
   });
+
+  // Initialize local stations when stations prop changes
+  useEffect(() => {
+    if (stations && stations.length > 0) {
+      setLocalStations(stations);
+    }
+  }, [stations]);
+
+  // Auto-refresh the data periodically
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      // In a real app, you'd fetch fresh data here
+      // For this implementation, we'll just refresh the local state
+      if (localStations && localStations.length > 0) {
+        setLocalStations([...localStations]);
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [localStations]);
 
   // Debug log the received stations data
   useEffect(() => {
@@ -300,6 +324,15 @@ const WeatherStationOverview = ({
     });
   };
 
+  // Use the centralized device status utility
+  const getDeviceStatus = (device) => {
+    // Pass the entire device object rather than just the timestamp
+    return deviceStatusUtils.getDeviceStatus(device, { 
+      // For demo, you can force online - remove in production
+      // forceOnline: true
+    });
+  };
+
   // Get the formatted charts data
   const chartsData = formatDataForCharts(stations);
 
@@ -312,19 +345,6 @@ const WeatherStationOverview = ({
     if (selectedDevice === 'all') return 'All Devices';
     const device = allDevices.find(d => d.id === selectedDevice);
     return device ? (device.name || device.id) : selectedDevice;
-  };
-
-  // Get the device status
-  const getDeviceStatus = (timestamp) => {
-    if (!timestamp) return { label: 'Unknown', color: 'default' };
-
-    const now = new Date();
-    const lastActivity = new Date(timestamp);
-    const diffHours = (now - lastActivity) / (1000 * 60 * 60);
-
-    if (diffHours < 1) return { label: 'Online', color: 'success' };
-    if (diffHours < 24) return { label: 'Idle', color: 'warning' };
-    return { label: 'Offline', color: 'error' };
   };
 
   // Get status for device
@@ -496,8 +516,6 @@ const WeatherStationOverview = ({
           </Grid>
         </Grid>
       </GlassPanel>
-
-      {/* Current weather metrics - now with equal height cards and click functionality */}
 
       {/* Current weather metrics */}
       <Box sx={{ mb: 4 }}>

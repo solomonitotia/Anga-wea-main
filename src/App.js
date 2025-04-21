@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
@@ -9,56 +9,10 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 
-// Authentication Context
-const AuthContext = React.createContext(null);
-
-export const useAuth = () => {
-  return React.useContext(AuthContext);
-};
+// Import AuthProvider
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Check for authentication on app load
-  useEffect(() => {
-    // Check if user is stored in localStorage
-    const isAuth = localStorage.getItem('isAuthenticated');
-    const userStr = localStorage.getItem('user');
-    
-    if (isAuth === 'true' && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setCurrentUser(user);
-      } catch (e) {
-        console.error('Error parsing user data:', e);
-      }
-    }
-    
-    setLoading(false);
-  }, []);
-
-  // Auth functions
-  const login = (userData) => {
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('user', JSON.stringify(userData));
-    setCurrentUser(userData);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('user');
-    setCurrentUser(null);
-  };
-
-  // Auth context value
-  const value = {
-    currentUser,
-    login,
-    logout,
-    loading
-  };
-
   // Theme - Same as used in AngaTech components
   const theme = createTheme({
     palette: {
@@ -86,7 +40,7 @@ function App() {
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Router>
@@ -106,7 +60,7 @@ function App() {
           </Routes>
         </Router>
       </ThemeProvider>
-    </AuthContext.Provider>
+    </AuthProvider>
   );
 }
 
