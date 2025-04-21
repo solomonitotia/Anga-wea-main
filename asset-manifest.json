@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/weather-iot-dashboard/static/css/main.0512c44b.css",
+    "main.js": "/weather-iot-dashboard/static/js/main.bf21085d.js",
+    "static/js/453.7d63b536.chunk.js": "/weather-iot-dashboard/static/js/453.7d63b536.chunk.js",
+    "index.html": "/weather-iot-dashboard/index.html",
+    "main.0512c44b.css.map": "/weather-iot-dashboard/static/css/main.0512c44b.css.map",
+    "main.bf21085d.js.map": "/weather-iot-dashboard/static/js/main.bf21085d.js.map",
+    "453.7d63b536.chunk.js.map": "/weather-iot-dashboard/static/js/453.7d63b536.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.0512c44b.css",
+    "static/js/main.bf21085d.js"
+  ]
+}
