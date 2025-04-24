@@ -4,5 +4,5 @@ services:
   anga-wea:
     build: .
     ports:
-      - "9100:80"
+      - "9200:80"
     restart: always  
