@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   anga-wea:
-    build: .
+    image: mbuguanganga/anga:latest
     ports:
       - "9200:80"
     restart: always  
