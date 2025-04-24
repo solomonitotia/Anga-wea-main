@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  anga-wea:
+    build: .
+    ports:
+      - "9100:80"
+    restart: always  
